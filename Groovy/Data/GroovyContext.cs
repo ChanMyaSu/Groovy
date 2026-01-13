@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Groovy.Domain;
+using Groovy.Configurations.Entities;
 
 namespace Groovy.Data
 {
@@ -20,6 +21,8 @@ namespace Groovy.Data
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            builder.ApplyConfiguration(new ArtistSeed());
 
             //composite keys of connecting entites
             
