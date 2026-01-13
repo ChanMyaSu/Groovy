@@ -1,0 +1,132 @@
+﻿@page "/listeninghistories/edit"
+@using Microsoft.EntityFrameworkCore
+@using Groovy.Domain
+@inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Edit</PageTitle>
+
+<h1>Edit</h1>
+
+<h2>ListeningHistory</h2>
+<hr />
+@if (ListeningHistory is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <EditForm method="post" Model="ListeningHistory" OnValidSubmit="UpdateListeningHistory" FormName="edit" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary role="alert"/>
+                <input type="hidden" name="ListeningHistory.Id" value="@ListeningHistory.Id" />
+                <div class="mb-3">
+                <span class="text-danger">*</span>
+                    <label for="appuserid" class="form-label">AppUserId:</label>
+                    <InputText id="appuserid" @bind-Value="ListeningHistory.AppUserId" class="form-control" aria-required="true"/>
+                    <ValidationMessage For="() => ListeningHistory.AppUserId" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                <span class="text-danger">*</span>
+                    <label for="songid" class="form-label">SongId:</label>
+                    <InputNumber id="songid" @bind-Value="ListeningHistory.SongId" class="form-control" aria-required="true"/>
+                    <ValidationMessage For="() => ListeningHistory.SongId" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                <span class="text-danger">*</span>
+                    <label for="listenedat" class="form-label">ListenedAt:</label>
+                    <InputDate id="listenedat" @bind-Value="ListeningHistory.ListenedAt" class="form-control" aria-required="true"/>
+                    <ValidationMessage For="() => ListeningHistory.ListenedAt" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="playeddurationpercent" class="form-label">PlayedDurationPercent:</label>
+                    <InputNumber id="playeddurationpercent" @bind-Value="ListeningHistory.PlayedDurationPercent" class="form-control" />
+                    <ValidationMessage For="() => ListeningHistory.PlayedDurationPercent" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="skipped" class="form-label">Skipped:</label>
+                    <InputCheckbox id="skipped" @bind-Value="ListeningHistory.Skipped" class="form-check-input" />
+                    <ValidationMessage For="() => ListeningHistory.Skipped" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="datecreated" class="form-label">DateCreated:</label>
+                    <InputDate id="datecreated" @bind-Value="ListeningHistory.DateCreated" class="form-control" />
+                    <ValidationMessage For="() => ListeningHistory.DateCreated" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="dateupdated" class="form-label">DateUpdated:</label>
+                    <InputDate id="dateupdated" @bind-Value="ListeningHistory.DateUpdated" class="form-control" />
+                    <ValidationMessage For="() => ListeningHistory.DateUpdated" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="createdby" class="form-label">CreatedBy:</label>
+                    <InputText id="createdby" @bind-Value="ListeningHistory.CreatedBy" class="form-control" />
+                    <ValidationMessage For="() => ListeningHistory.CreatedBy" class="text-danger" />
+                </div>
+                <div class="mb-3">
+                    <label for="updatedby" class="form-label">UpdatedBy:</label>
+                    <InputText id="updatedby" @bind-Value="ListeningHistory.UpdatedBy" class="form-control" />
+                    <ValidationMessage For="() => ListeningHistory.UpdatedBy" class="text-danger" />
+                </div>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </EditForm>
+        </div>
+    </div>
+}
+
+<div>
+    <a href="/listeninghistories">Back to List</a>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    [SupplyParameterFromForm]
+    private ListeningHistory? ListeningHistory { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        ListeningHistory ??= await context.ListeningHistory.FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (ListeningHistory is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+
+    // To protect from overposting attacks, enable the specific properties you want to bind to.
+    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task UpdateListeningHistory()
+    {
+        using var context = DbFactory.CreateDbContext();
+        context.Attach(ListeningHistory!).State = EntityState.Modified;
+
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!ListeningHistoryExists(ListeningHistory!.Id))
+            {
+                NavigationManager.NavigateTo("notfound");
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        NavigationManager.NavigateTo("/listeninghistories");
+    }
+
+    private bool ListeningHistoryExists(int id)
+    {
+        using var context = DbFactory.CreateDbContext();
+        return context.ListeningHistory.Any(e => e.Id == id);
+    }
+}

@@ -1,0 +1,60 @@
+﻿@page "/recommendations/details"
+@using Microsoft.EntityFrameworkCore
+@using Groovy.Domain
+@inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Details</PageTitle>
+
+<h1>Details</h1>
+
+<div>
+    <h2>Recommendation</h2>
+    <hr />
+    @if (recommendation is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else {
+        <dl class="row">
+            <dt class="col-sm-2">AppUserId</dt>
+            <dd class="col-sm-10">@recommendation.AppUserId</dd>
+            <dt class="col-sm-2">GeneratedAt</dt>
+            <dd class="col-sm-10">@recommendation.GeneratedAt</dd>
+            <dt class="col-sm-2">AlgorithmUsed</dt>
+            <dd class="col-sm-10">@recommendation.AlgorithmUsed</dd>
+            <dt class="col-sm-2">SeedInput</dt>
+            <dd class="col-sm-10">@recommendation.SeedInput</dd>
+            <dt class="col-sm-2">DateCreated</dt>
+            <dd class="col-sm-10">@recommendation.DateCreated</dd>
+            <dt class="col-sm-2">DateUpdated</dt>
+            <dd class="col-sm-10">@recommendation.DateUpdated</dd>
+            <dt class="col-sm-2">CreatedBy</dt>
+            <dd class="col-sm-10">@recommendation.CreatedBy</dd>
+            <dt class="col-sm-2">UpdatedBy</dt>
+            <dd class="col-sm-10">@recommendation.UpdatedBy</dd>
+        </dl>
+        <div>
+            <a href="@($"/recommendations/edit?id={recommendation.Id}")">Edit</a> |
+            <a href="@($"/recommendations")">Back to List</a>
+        </div>
+    }
+</div>
+
+@code {
+    private Recommendation? recommendation;
+
+    [SupplyParameterFromQuery]
+    private int Id { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var context = DbFactory.CreateDbContext();
+        recommendation = await context.Recommendation.FirstOrDefaultAsync(m => m.Id == Id);
+
+        if (recommendation is null)
+        {
+            NavigationManager.NavigateTo("notfound");
+        }
+    }
+}

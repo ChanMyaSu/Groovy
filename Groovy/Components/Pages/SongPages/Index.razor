@@ -1,0 +1,45 @@
+﻿@page "/songs"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using Groovy.Domain
+@using Groovy.Data
+@implements IAsyncDisposable
+@inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+
+<PageTitle>Index</PageTitle>
+
+<h1>Index</h1>
+
+<p>
+    <a href="songs/create">Create New</a>
+</p>
+
+<QuickGrid Class="table" Items="context.Song">
+    <PropertyColumn Property="song => song.Title" />
+    <PropertyColumn Property="song => song.DurationSec" />
+    <PropertyColumn Property="song => song.ReleaseDate" />
+    <PropertyColumn Property="song => song.Bpm" />
+    <PropertyColumn Property="song => song.Energy" />
+    <PropertyColumn Property="song => song.MoodTag" />
+    <PropertyColumn Property="song => song.DateCreated" />
+    <PropertyColumn Property="song => song.DateUpdated" />
+    <PropertyColumn Property="song => song.CreatedBy" />
+    <PropertyColumn Property="song => song.UpdatedBy" />
+
+    <TemplateColumn Context="song">
+        <a href="@($"songs/edit?id={song.Id}")">Edit</a> |
+        <a href="@($"songs/details?id={song.Id}")">Details</a> |
+        <a href="@($"songs/delete?id={song.Id}")">Delete</a>
+    </TemplateColumn>
+</QuickGrid>
+
+@code {
+    private GroovyContext context = default!;
+
+    protected override void OnInitialized()
+    {
+        context = DbFactory.CreateDbContext();
+    }
+
+    public async ValueTask DisposeAsync() => await context.DisposeAsync();
+}

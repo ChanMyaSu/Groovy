@@ -1,0 +1,43 @@
+﻿@page "/recommendations"
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.QuickGrid
+@using Groovy.Domain
+@using Groovy.Data
+@implements IAsyncDisposable
+@inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+
+<PageTitle>Index</PageTitle>
+
+<h1>Index</h1>
+
+<p>
+    <a href="recommendations/create">Create New</a>
+</p>
+
+<QuickGrid Class="table" Items="context.Recommendation">
+    <PropertyColumn Property="recommendation => recommendation.AppUserId" />
+    <PropertyColumn Property="recommendation => recommendation.GeneratedAt" />
+    <PropertyColumn Property="recommendation => recommendation.AlgorithmUsed" />
+    <PropertyColumn Property="recommendation => recommendation.SeedInput" />
+    <PropertyColumn Property="recommendation => recommendation.DateCreated" />
+    <PropertyColumn Property="recommendation => recommendation.DateUpdated" />
+    <PropertyColumn Property="recommendation => recommendation.CreatedBy" />
+    <PropertyColumn Property="recommendation => recommendation.UpdatedBy" />
+
+    <TemplateColumn Context="recommendation">
+        <a href="@($"recommendations/edit?id={recommendation.Id}")">Edit</a> |
+        <a href="@($"recommendations/details?id={recommendation.Id}")">Details</a> |
+        <a href="@($"recommendations/delete?id={recommendation.Id}")">Delete</a>
+    </TemplateColumn>
+</QuickGrid>
+
+@code {
+    private GroovyContext context = default!;
+
+    protected override void OnInitialized()
+    {
+        context = DbFactory.CreateDbContext();
+    }
+
+    public async ValueTask DisposeAsync() => await context.DisposeAsync();
+}

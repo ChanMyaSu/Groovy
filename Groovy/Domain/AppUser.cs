@@ -1,6 +1,8 @@
-﻿namespace Groovy.Domain
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Groovy.Domain
 {
-    public abstract class AppUser : BaseDomainModel
+    public class AppUser : BaseDomainModel
     {
         public int UserId { get; set; }
         public string? Username { get; set; }

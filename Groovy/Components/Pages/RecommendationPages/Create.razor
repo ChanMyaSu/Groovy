@@ -1,0 +1,82 @@
+﻿@page "/recommendations/create"
+@using Microsoft.EntityFrameworkCore
+@using Groovy.Domain
+@inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+@inject NavigationManager NavigationManager
+
+<PageTitle>Create</PageTitle>
+
+<h1>Create</h1>
+
+<h2>Recommendation</h2>
+<hr />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm method="post" Model="Recommendation" OnValidSubmit="AddRecommendation" FormName="create" Enhance>
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert"/>
+            <div class="mb-3">
+                <span class="text-danger">*</span>
+                <label for="appuserid" class="form-label">AppUserId:</label> 
+                <InputText id="appuserid" @bind-Value="Recommendation.AppUserId" class="form-control" aria-required="true"/> 
+                <ValidationMessage For="() => Recommendation.AppUserId" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <span class="text-danger">*</span>
+                <label for="generatedat" class="form-label">GeneratedAt:</label> 
+                <InputDate id="generatedat" @bind-Value="Recommendation.GeneratedAt" class="form-control" aria-required="true"/> 
+                <ValidationMessage For="() => Recommendation.GeneratedAt" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <span class="text-danger">*</span>
+                <label for="algorithmused" class="form-label">AlgorithmUsed:</label> 
+                <InputText id="algorithmused" @bind-Value="Recommendation.AlgorithmUsed" class="form-control" aria-required="true"/> 
+                <ValidationMessage For="() => Recommendation.AlgorithmUsed" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="seedinput" class="form-label">SeedInput:</label> 
+                <InputText id="seedinput" @bind-Value="Recommendation.SeedInput" class="form-control" /> 
+                <ValidationMessage For="() => Recommendation.SeedInput" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="datecreated" class="form-label">DateCreated:</label> 
+                <InputDate id="datecreated" @bind-Value="Recommendation.DateCreated" class="form-control" /> 
+                <ValidationMessage For="() => Recommendation.DateCreated" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="dateupdated" class="form-label">DateUpdated:</label> 
+                <InputDate id="dateupdated" @bind-Value="Recommendation.DateUpdated" class="form-control" /> 
+                <ValidationMessage For="() => Recommendation.DateUpdated" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="createdby" class="form-label">CreatedBy:</label> 
+                <InputText id="createdby" @bind-Value="Recommendation.CreatedBy" class="form-control" /> 
+                <ValidationMessage For="() => Recommendation.CreatedBy" class="text-danger" /> 
+            </div>        
+            <div class="mb-3">
+                <label for="updatedby" class="form-label">UpdatedBy:</label> 
+                <InputText id="updatedby" @bind-Value="Recommendation.UpdatedBy" class="form-control" /> 
+                <ValidationMessage For="() => Recommendation.UpdatedBy" class="text-danger" /> 
+            </div>        
+            <button type="submit" class="btn btn-primary">Create</button>
+        </EditForm>
+    </div>
+</div>
+
+<div>
+    <a href="/recommendations">Back to List</a>
+</div>
+
+@code {
+    [SupplyParameterFromForm]
+    private Recommendation Recommendation { get; set; } = new();
+
+    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
+    private async Task AddRecommendation()
+    {
+        using var context = DbFactory.CreateDbContext();
+        context.Recommendation.Add(Recommendation);
+        await context.SaveChangesAsync();
+        NavigationManager.NavigateTo("/recommendations");
+    }
+}
