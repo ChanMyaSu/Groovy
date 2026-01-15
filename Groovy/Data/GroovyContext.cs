@@ -14,6 +14,7 @@ namespace Groovy.Data
 
         {
 
+
         }
         
 
@@ -37,7 +38,10 @@ namespace Groovy.Data
 
             builder.Entity<RecommendationSong>()
                 .HasKey(x => new { x.RecommendationId, x.SongId });
-
+            //seed data
+            builder.ApplyConfiguration(new ArtistSeed());
+            builder.ApplyConfiguration(new GenreSeed());
+            builder.ApplyConfiguration(new SongSeed());
 
         }
 
