@@ -1,7 +1,376 @@
 ﻿@page "/"
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Groovy - Your Music Companion</PageTitle>
 
-<h1>Hello, world!</h1>
+<AuthorizeView>
+    <Authorized>
+        <div class="groovy-dashboard">
+            <div class="welcome-section">
+                <div class="welcome-content">
+                    <h1 class="welcome-title">
+                        Welcome back, <span class="username">@context.User.Identity?.Name</span>! 🎵
+                    </h1>
+                    <p class="welcome-subtitle">Ready to discover your next favorite song?</p>
+                </div>
+            </div>
 
-Welcome to your new app.
+            <div class="feature-grid">
+                <div class="feature-card feature-primary" @onclick='() => Navigation.NavigateTo("/songs")'>
+                    <div class="feature-icon">🎵</div>
+                    <h3>Browse Songs</h3>
+                    <p>Explore our extensive music library</p>
+                    <div class="feature-arrow">→</div>
+                </div>
+
+                <div class="feature-card feature-secondary" @onclick='() => Navigation.NavigateTo("/recommendations")'>
+                    <div class="feature-icon">✨</div>
+                    <h3>Get Recommendations</h3>
+                    <p>Personalized songs just for you</p>
+                    <div class="feature-arrow">→</div>
+                </div>
+
+                <div class="feature-card feature-accent" @onclick='() => Navigation.NavigateTo("/playlists")'>
+                    <div class="feature-icon">📋</div>
+                    <h3>My Playlists</h3>
+                    <p>Create and manage your collections</p>
+                    <div class="feature-arrow">→</div>
+                </div>
+
+                <div class="feature-card feature-info" @onclick='() => Navigation.NavigateTo("/history")'>
+                    <div class="feature-icon">🕒</div>
+                    <h3>Listening History</h3>
+                    <p>See what you've been playing</p>
+                    <div class="feature-arrow">→</div>
+                </div>
+            </div>
+
+            <div class="stats-section">
+                <div class="stat-card">
+                    <div class="stat-value">1,247</div>
+                    <div class="stat-label">Songs Available</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">156</div>
+                    <div class="stat-label">Artists</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">24</div>
+                    <div class="stat-label">Genres</div>
+                </div>
+            </div>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="landing-page">
+            <div class="hero-section">
+                <div class="hero-content">
+                    <div class="logo-large">🎵</div>
+                    <h1 class="hero-title">Welcome to Groovy</h1>
+                    <p class="hero-subtitle">Your Personal Music Recommendation Companion</p>
+                    <p class="hero-description">
+                        Discover new music tailored to your taste. Get personalized recommendations
+                        based on your listening habits and preferences.
+                    </p>
+                    <div class="cta-buttons">
+                        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/register")'>
+                            Get Started
+                        </button>
+                        <button class="btn btn-outline" @onclick='() => Navigation.NavigateTo("/login")'>
+                            Sign In
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features-section">
+                <h2 class="section-title">Why Choose Groovy?</h2>
+                <div class="feature-grid">
+                    <div class="feature-item">
+                        <div class="feature-icon-large">🎯</div>
+                        <h3>Smart Recommendations</h3>
+                        <p>Our algorithm learns your preferences to suggest perfect tracks</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon-large">📱</div>
+                        <h3>Easy to Use</h3>
+                        <p>Clean, intuitive interface designed for music lovers</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon-large">🎵</div>
+                        <h3>Vast Library</h3>
+                        <p>Access thousands of songs across all genres</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon-large">📊</div>
+                        <h3>Track History</h3>
+                        <p>Keep track of what you love and discover patterns</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+<style>
+    .groovy-dashboard, .landing-page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .welcome-section {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        padding: 3rem;
+        margin-bottom: 3rem;
+        color: white;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+    }
+
+    .welcome-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .username {
+        color: #ffd700;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .welcome-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.95;
+    }
+
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 3rem;
+    }
+
+    .feature-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        position: relative;
+        overflow: hidden;
+    }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+        }
+
+    .feature-primary::before {
+        background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+
+    .feature-secondary::before {
+        background: linear-gradient(90deg, #f093fb, #f5576c);
+    }
+
+    .feature-accent::before {
+        background: linear-gradient(90deg, #4facfe, #00f2fe);
+    }
+
+    .feature-info::before {
+        background: linear-gradient(90deg, #43e97b, #38f9d7);
+    }
+
+    .feature-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .feature-card h3 {
+        font-size: 1.4rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #2d3748;
+    }
+
+    .feature-card p {
+        color: #718096;
+        margin-bottom: 1rem;
+    }
+
+    .feature-arrow {
+        font-size: 1.5rem;
+        color: #667eea;
+        position: absolute;
+        bottom: 1rem;
+        right: 1rem;
+        opacity: 0;
+        transition: all 0.3s ease;
+    }
+
+    .feature-card:hover .feature-arrow {
+        opacity: 1;
+        transform: translateX(4px);
+    }
+
+    .stats-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .stat-card {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #667eea;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        color: #4a5568;
+        font-weight: 500;
+    }
+
+    .hero-section {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 20px;
+        color: white;
+        margin-bottom: 4rem;
+    }
+
+    .logo-large {
+        font-size: 5rem;
+        margin-bottom: 1rem;
+    }
+
+    .hero-title {
+        font-size: 3.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    .hero-subtitle {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        opacity: 0.95;
+    }
+
+    .hero-description {
+        font-size: 1.1rem;
+        max-width: 600px;
+        margin: 0 auto 2rem;
+        opacity: 0.9;
+        line-height: 1.6;
+    }
+
+    .cta-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        padding: 1rem 2.5rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        border-radius: 12px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background: white;
+        color: #667eea;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+        }
+
+    .btn-outline {
+        background: transparent;
+        color: white;
+        border: 2px solid white;
+    }
+
+        .btn-outline:hover {
+            background: white;
+            color: #667eea;
+        }
+
+    .features-section {
+        padding: 2rem 0;
+    }
+
+    .section-title {
+        text-align: center;
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 3rem;
+    }
+
+    .feature-item {
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .feature-icon-large {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .feature-item h3 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+    }
+
+    .feature-item p {
+        color: #718096;
+        font-size: 1rem;
+        line-height: 1.6;
+    }
+
+    @@media (max-width: 768px) {
+        .hero-title {
+            font-size: 2.5rem;
+        }
+
+        .welcome-title {
+            font-size: 2rem;
+        }
+
+        .feature-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
