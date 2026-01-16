@@ -68,6 +68,9 @@ namespace Groovy.Data
             builder.ApplyConfiguration(new ArtistSeed());
             builder.ApplyConfiguration(new GenreSeed());
             builder.ApplyConfiguration(new SongSeed());
+            builder.ApplyConfiguration(new RoleSeed());
+            builder.ApplyConfiguration(new UserSeed());
+            builder.ApplyConfiguration(new UserRoleSeed());
 
         }
 
