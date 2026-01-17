@@ -12,6 +12,9 @@ namespace Groovy.Domain
 
         public DateTime? ReleaseDate { get; set; }
 
+        [StringLength(500)]
+        public string? AudioFilePath { get; set; }
+
         // For recommendation logic
         [Range(40, 250)]
         public int Bpm { get; set; } = 120;

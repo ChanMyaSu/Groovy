@@ -3,6 +3,7 @@
 @using Groovy.Domain
 @inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider authenticationStateProvider
 
 <PageTitle>Edit</PageTitle>
 
@@ -65,6 +66,8 @@ else
 </div>
 
 @code {
+    private string userId = "System";
+
     [SupplyParameterFromQuery]
     private int Id { get; set; }
 
@@ -73,6 +76,15 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        // Get the userId claim
+        var userIdClaim = user.FindFirst("userId");
+        if (userIdClaim != null)
+        {
+            userId = userIdClaim.Value;
+        }
+     
         using var context = DbFactory.CreateDbContext();
         Playlist ??= await context.Playlist.FirstOrDefaultAsync(m => m.Id == Id);
 
@@ -87,6 +99,12 @@ else
     private async Task UpdatePlaylist()
     {
         using var context = DbFactory.CreateDbContext();
+
+        //Set the userId to the UpdatedBy fields.
+        Playlist.UpdatedBy = userId;
+        //Set the DateUpdated fields to the current date and time.
+        Playlist.DateUpdated = DateTime.Now;
+
         context.Attach(Playlist!).State = EntityState.Modified;
 
         try

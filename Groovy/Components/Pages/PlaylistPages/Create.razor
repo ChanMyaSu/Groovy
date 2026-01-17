@@ -3,6 +3,7 @@
 @using Groovy.Domain
 @inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
 @inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider authenticationStateProvider
 
 <PageTitle>Create</PageTitle>
 
@@ -27,22 +28,22 @@
                 <InputText id="appuserid" @bind-Value="Playlist.AppUserId" class="form-control" aria-required="true"/> 
                 <ValidationMessage For="() => Playlist.AppUserId" class="text-danger" /> 
             </div>        
-            <div class="mb-3">
+            <div class="mb-3" hidden>
                 <label for="datecreated" class="form-label">DateCreated:</label> 
                 <InputDate id="datecreated" @bind-Value="Playlist.DateCreated" class="form-control" /> 
                 <ValidationMessage For="() => Playlist.DateCreated" class="text-danger" /> 
             </div>        
-            <div class="mb-3">
+            <div class="mb-3" hidden>
                 <label for="dateupdated" class="form-label">DateUpdated:</label> 
                 <InputDate id="dateupdated" @bind-Value="Playlist.DateUpdated" class="form-control" /> 
                 <ValidationMessage For="() => Playlist.DateUpdated" class="text-danger" /> 
             </div>        
-            <div class="mb-3">
+            <div class="mb-3" hidden>
                 <label for="createdby" class="form-label">CreatedBy:</label> 
                 <InputText id="createdby" @bind-Value="Playlist.CreatedBy" class="form-control" /> 
                 <ValidationMessage For="() => Playlist.CreatedBy" class="text-danger" /> 
             </div>        
-            <div class="mb-3">
+            <div class="mb-3" hidden>
                 <label for="updatedby" class="form-label">UpdatedBy:</label> 
                 <InputText id="updatedby" @bind-Value="Playlist.UpdatedBy" class="form-control" /> 
                 <ValidationMessage For="() => Playlist.UpdatedBy" class="text-danger" /> 
@@ -57,6 +58,20 @@
 </div>
 
 @code {
+    private string userId = "System";
+
+    //Override the OnInitialized method to get the user id.
+    protected override async void OnInitialized()
+    {
+        var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        // Get the userId claim
+        var userIdClaim = user.FindFirst("userId");
+        if (userIdClaim != null)
+        {
+            userId = userIdClaim.Value;
+        }
+    }
     [SupplyParameterFromForm]
     private Playlist Playlist { get; set; } = new();
 
@@ -64,6 +79,14 @@
     private async Task AddPlaylist()
     {
         using var context = DbFactory.CreateDbContext();
+
+        //Set the userId to the CreatedBy and UpdatedBy fields.
+        Playlist.CreatedBy = userId;
+        Playlist.UpdatedBy = userId;
+        //Set the DateCreated and DateUpdated fields to the current date and time.
+        Playlist.DateCreated = DateTime.Now;
+        Playlist.DateUpdated = DateTime.Now;
+
         context.Playlist.Add(Playlist);
         await context.SaveChangesAsync();
         NavigationManager.NavigateTo("/playlists");

@@ -24,7 +24,10 @@
     <TemplateColumn Context="genre">
         <a href="@($"genres/edit?id={genre.Id}")">Edit</a> |
         <a href="@($"genres/details?id={genre.Id}")">Details</a> |
-        <a href="@($"genres/delete?id={genre.Id}")">Delete</a>
+        <AuthorizeView Roles="Administrator">
+            <a href="@($"genres/delete?id={genre.Id}")">Delete</a>
+        </AuthorizeView>
+        
     </TemplateColumn>
 </QuickGrid>
 

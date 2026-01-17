@@ -3,154 +3,273 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Navigation
 
-<PageTitle>Groovy - Your Music Companion</PageTitle>
+<PageTitle>Groovy - Find Your Groove</PageTitle>
 
 <AuthorizeView>
     <Authorized>
         <div class="groovy-dashboard">
-            <div class="welcome-section">
-                <div class="welcome-content">
-                    <h1 class="welcome-title">
-                        Welcome back, <span class="username">@context.User.Identity?.Name</span>! 🎵
-                    </h1>
-                    <p class="welcome-subtitle">Ready to discover your next favorite song?</p>
-                </div>
+            <!-- Welcome Section - Top Left -->
+            <div class="welcome-header">
+                <h2 class="welcome-back">Welcome back, <span class="username-highlight">@GetFirstName(context.User.Identity?.Name)</span>! 👋</h2>
             </div>
 
+            <!-- About Groovy Section -->
+            <div class="about-section">
+                <h3 class="about-title">About Groovy</h3>
+                <p class="about-description">
+                    Groovy is your personal music companion, designed to help you discover and enjoy music that resonates with your unique taste.
+                    Whether you're an artist sharing your creations or a music lover exploring new sounds, Groovy brings the perfect harmony to your listening experience.
+                </p>
+            </div>
+
+            
+            <!-- Find Your Groove CTA Section -->
+            <div class="groove-cta-section">
+                <a href="/recommendations" class="groove-cta-card-link">
+                    <div class="groove-cta-card">
+                        <div class="groove-icon">🎵✨</div>
+                        <h1 class="groove-title">Find Your Groove</h1>
+                        <p class="groove-subtitle">Discover music tailored just for you</p>
+                        <button class="btn-start-now">Start Now →</button>
+                    </div>
+                </a>
+            </div>
+            <!-- Feature Cards Grid -->
             <div class="feature-grid">
-                <div class="feature-card feature-primary" @onclick='() => Navigation.NavigateTo("/songs")'>
-                    <div class="feature-icon">🎵</div>
-                    <h3>Browse Songs</h3>
-                    <p>Explore our extensive music library</p>
-                    <div class="feature-arrow">→</div>
-                </div>
+                <a href="/playlists" class="feature-card-link">
+                    <div class="feature-card feature-primary">
+                        <div class="feature-icon">📋</div>
+                        <h3>My Playlists</h3>
+                        <p>Create and manage your music collections</p>
+                        <div class="feature-arrow">→</div>
+                    </div>
+                </a>
 
-                <div class="feature-card feature-secondary" @onclick='() => Navigation.NavigateTo("/recommendations")'>
-                    <div class="feature-icon">✨</div>
-                    <h3>Get Recommendations</h3>
-                    <p>Personalized songs just for you</p>
-                    <div class="feature-arrow">→</div>
-                </div>
+                <a href="/listeninghistories" class="feature-card-link">
+                    <div class="feature-card feature-secondary">
+                        <div class="feature-icon">🕒</div>
+                        <h3>Listening History</h3>
+                        <p>See what you've been enjoying</p>
+                        <div class="feature-arrow">→</div>
+                    </div>
+                </a>
 
-                <div class="feature-card feature-accent" @onclick='() => Navigation.NavigateTo("/playlists")'>
-                    <div class="feature-icon">📋</div>
-                    <h3>My Playlists</h3>
-                    <p>Create and manage your collections</p>
-                    <div class="feature-arrow">→</div>
-                </div>
+                <a href="/songs" class="feature-card-link">
+                    <div class="feature-card feature-accent">
+                        <div class="feature-icon">🎵</div>
+                        <h3>Browse Songs</h3>
+                        <p>Explore our extensive music library</p>
+                        <div class="feature-arrow">→</div>
+                    </div>
+                </a>
 
-                <div class="feature-card feature-info" @onclick='() => Navigation.NavigateTo("/history")'>
-                    <div class="feature-icon">🕒</div>
-                    <h3>Listening History</h3>
-                    <p>See what you've been playing</p>
-                    <div class="feature-arrow">→</div>
-                </div>
-            </div>
-
-            <div class="stats-section">
-                <div class="stat-card">
-                    <div class="stat-value">1,247</div>
-                    <div class="stat-label">Songs Available</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">156</div>
-                    <div class="stat-label">Artists</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">24</div>
-                    <div class="stat-label">Genres</div>
-                </div>
+                <a href="/profilepage" class="feature-card-link">
+                    <div class="feature-card feature-info">
+                        <div class="feature-icon">👤</div>
+                        <h3>My Profile</h3>
+                        <p>View and edit your profile</p>
+                        <div class="feature-arrow">→</div>
+                    </div>
+                </a>
             </div>
         </div>
     </Authorized>
     <NotAuthorized>
         <div class="landing-page">
+            <!-- Hero Section -->
             <div class="hero-section">
                 <div class="hero-content">
                     <div class="logo-large">🎵</div>
                     <h1 class="hero-title">Welcome to Groovy</h1>
-                    <p class="hero-subtitle">Your Personal Music Recommendation Companion</p>
-                    <p class="hero-description">
-                        Discover new music tailored to your taste. Get personalized recommendations
-                        based on your listening habits and preferences.
-                    </p>
-                    <div class="cta-buttons">
-                        <button class="btn btn-primary" @onclick='() => Navigation.NavigateTo("/register")'>
-                            Get Started
-                        </button>
-                        <button class="btn btn-outline" @onclick='() => Navigation.NavigateTo("/login")'>
-                            Sign In
-                        </button>
+                    <p class="hero-subtitle">Your Personal Music Discovery Platform</p>
+
+                    <!-- About Groovy for Non-Authenticated Users -->
+                    <div class="hero-about">
+                        <p class="hero-description">
+                            Groovy is where music lovers and artists come together. Discover personalized recommendations,
+                            create playlists, track your listening history, and explore a world of music tailored to your taste.
+                            Whether you're here to listen or to share your art, Groovy has everything you need to find your perfect sound.
+                        </p>
+                    </div>
+
+                    <!-- Big CTA Section -->
+                    <div class="cta-main-section">
+                        <h2 class="cta-big-text">Find Your Groove</h2>
+                        <p class="cta-encourage">Start your musical journey today</p>
+                        <div class="cta-buttons">
+                            <a href="/Account/Register" class="btn btn-primary btn-large">
+                                Register to Start Now →
+                            </a>
+                            <a href="/Account/Login" class="btn btn-outline">
+                                Sign In
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Features Section -->
             <div class="features-section">
                 <h2 class="section-title">Why Choose Groovy?</h2>
-                <div class="feature-grid">
+                <div class="feature-grid-landing">
                     <div class="feature-item">
                         <div class="feature-icon-large">🎯</div>
                         <h3>Smart Recommendations</h3>
-                        <p>Our algorithm learns your preferences to suggest perfect tracks</p>
+                        <p>Our algorithm learns your preferences to suggest perfect tracks that match your mood and taste</p>
+                    </div>
+                    <div class="feature-item">
+                        <div class="feature-icon-large">🎨</div>
+                        <h3>For Artists & Listeners</h3>
+                        <p>Share your music as an artist or discover new favorites as a listener</p>
                     </div>
                     <div class="feature-item">
                         <div class="feature-icon-large">📱</div>
-                        <h3>Easy to Use</h3>
-                        <p>Clean, intuitive interface designed for music lovers</p>
-                    </div>
-                    <div class="feature-item">
-                        <div class="feature-icon-large">🎵</div>
-                        <h3>Vast Library</h3>
-                        <p>Access thousands of songs across all genres</p>
+                        <h3>Beautiful Interface</h3>
+                        <p>Clean, modern design that makes exploring music a joy</p>
                     </div>
                     <div class="feature-item">
                         <div class="feature-icon-large">📊</div>
-                        <h3>Track History</h3>
-                        <p>Keep track of what you love and discover patterns</p>
+                        <h3>Track Your Journey</h3>
+                        <p>Keep track of your listening history and discover your music patterns</p>
                     </div>
                 </div>
+            </div>
+
+            <!-- Final CTA -->
+            <div class="final-cta">
+                <h2>Ready to Find Your Groove?</h2>
+                <a href="/Account/Register" class="btn btn-primary btn-xl">
+                    Get Started Free →
+                </a>
             </div>
         </div>
     </NotAuthorized>
 </AuthorizeView>
 
+@code {
+    private string GetFirstName(string? email)
+    {
+        if (string.IsNullOrEmpty(email))
+            return "Guest";
+
+        // Extract first name from email (before @)
+        var name = email.Split('@')[0];
+        // Capitalize first letter
+        return char.ToUpper(name[0]) + name.Substring(1);
+    }
+}
+
 <style>
+    /* General Layout */
     .groovy-dashboard, .landing-page {
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
         padding: 2rem;
     }
 
-    .welcome-section {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 20px;
-        padding: 3rem;
-        margin-bottom: 3rem;
-        color: white;
-        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+    /* Authenticated User - Welcome Header (Top Left) */
+    .welcome-header {
+        margin-bottom: 2rem;
     }
 
-    .welcome-title {
-        font-size: 2.5rem;
+    .welcome-back {
+        font-size: 2rem;
+        font-weight: 600;
+        color: #2d3748;
+        margin: 0;
+    }
+
+    .username-highlight {
+        color: #667eea;
         font-weight: 700;
-        margin-bottom: 0.5rem;
     }
 
-    .username {
-        color: #ffd700;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    /* About Section */
+    .about-section {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        margin-bottom: 2rem;
     }
 
-    .welcome-subtitle {
-        font-size: 1.2rem;
-        opacity: 0.95;
+    .about-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 1rem;
     }
 
+    .about-description {
+        font-size: 1.1rem;
+        line-height: 1.8;
+        color: #4a5568;
+        margin: 0;
+    }
+
+    /* Find Your Groove CTA - Authenticated */
+    .groove-cta-section {
+        margin-bottom: 3rem;
+    }
+
+    .groove-cta-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 24px;
+        padding: 4rem 3rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4);
+    }
+
+        .groove-cta-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 30px 80px rgba(102, 126, 234, 0.5);
+        }
+
+    .groove-icon {
+        font-size: 5rem;
+        margin-bottom: 1rem;
+    }
+
+    .groove-title {
+        font-size: 4rem;
+        font-weight: 900;
+        color: white;
+        margin-bottom: 1rem;
+        text-shadow: 2px 2px 8px rgba(0,0,0,0.2);
+        letter-spacing: -1px;
+    }
+
+    .groove-subtitle {
+        font-size: 1.5rem;
+        color: rgba(255,255,255,0.95);
+        margin-bottom: 2rem;
+    }
+
+    .btn-start-now {
+        background: white;
+        color: #667eea;
+        font-size: 1.5rem;
+        font-weight: 700;
+        padding: 1.2rem 3rem;
+        border: none;
+        border-radius: 16px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+
+        .btn-start-now:hover {
+            transform: scale(1.05);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.3);
+        }
+
+    /* Feature Grid */
     .feature-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: 1.5rem;
-        margin-bottom: 3rem;
+        margin-bottom: 2rem;
     }
 
     .feature-card {
@@ -227,97 +346,122 @@
         transform: translateX(4px);
     }
 
-    .stats-section {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .stat-card {
-        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        border-radius: 16px;
-        padding: 2rem;
-        text-align: center;
-    }
-
-    .stat-value {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #667eea;
-        margin-bottom: 0.5rem;
-    }
-
-    .stat-label {
-        color: #4a5568;
-        font-weight: 500;
-    }
-
+    /* Landing Page - Hero Section */
     .hero-section {
         text-align: center;
         padding: 4rem 2rem;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 20px;
+        border-radius: 24px;
         color: white;
         margin-bottom: 4rem;
+        box-shadow: 0 20px 60px rgba(102, 126, 234, 0.3);
     }
 
     .logo-large {
-        font-size: 5rem;
+        font-size: 6rem;
         margin-bottom: 1rem;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @@keyframes float {
+        0%, 100% {
+            transform: translateY(0);
+        }
+
+        50% {
+            transform: translateY(-10px);
+        }
     }
 
     .hero-title {
-        font-size: 3.5rem;
-        font-weight: 700;
+        font-size: 4rem;
+        font-weight: 800;
         margin-bottom: 1rem;
+        text-shadow: 2px 2px 8px rgba(0,0,0,0.2);
     }
 
     .hero-subtitle {
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
+        font-size: 1.8rem;
+        margin-bottom: 2rem;
         opacity: 0.95;
+        font-weight: 500;
+    }
+
+    .hero-about {
+        max-width: 800px;
+        margin: 0 auto 3rem;
     }
 
     .hero-description {
-        font-size: 1.1rem;
-        max-width: 600px;
-        margin: 0 auto 2rem;
-        opacity: 0.9;
-        line-height: 1.6;
+        font-size: 1.2rem;
+        line-height: 1.8;
+        opacity: 0.95;
+    }
+
+    /* Big CTA Section */
+    .cta-main-section {
+        margin-top: 3rem;
+        padding: 2rem 0;
+    }
+
+    .cta-big-text {
+        font-size: 5rem;
+        font-weight: 900;
+        margin-bottom: 0.5rem;
+        text-shadow: 3px 3px 10px rgba(0,0,0,0.3);
+        letter-spacing: -2px;
+    }
+
+    .cta-encourage {
+        font-size: 1.5rem;
+        margin-bottom: 2rem;
+        opacity: 0.95;
     }
 
     .cta-buttons {
         display: flex;
-        gap: 1rem;
+        gap: 1.5rem;
         justify-content: center;
         flex-wrap: wrap;
     }
 
     .btn {
         padding: 1rem 2.5rem;
-        font-size: 1.1rem;
-        font-weight: 600;
-        border-radius: 12px;
+        font-size: 1.2rem;
+        font-weight: 700;
+        border-radius: 16px;
         border: none;
         cursor: pointer;
         transition: all 0.3s ease;
+        text-decoration: none;
+        display: inline-block;
+    }
+
+    .btn-large {
+        font-size: 1.5rem;
+        padding: 1.5rem 3.5rem;
+    }
+
+    .btn-xl {
+        font-size: 1.8rem;
+        padding: 1.8rem 4rem;
     }
 
     .btn-primary {
         background: white;
         color: #667eea;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
     }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.3);
         }
 
     .btn-outline {
         background: transparent;
         color: white;
-        border: 2px solid white;
+        border: 3px solid white;
     }
 
         .btn-outline:hover {
@@ -325,52 +469,98 @@
             color: #667eea;
         }
 
+    /* Features Section */
     .features-section {
-        padding: 2rem 0;
+        padding: 4rem 2rem;
     }
 
     .section-title {
         text-align: center;
-        font-size: 2.5rem;
-        font-weight: 700;
+        font-size: 3rem;
+        font-weight: 800;
         color: #2d3748;
-        margin-bottom: 3rem;
+        margin-bottom: 4rem;
+    }
+
+    .feature-grid-landing {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 2rem;
     }
 
     .feature-item {
         text-align: center;
         padding: 2rem;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        transition: all 0.3s ease;
     }
 
+        .feature-item:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+        }
+
     .feature-icon-large {
-        font-size: 4rem;
+        font-size: 5rem;
         margin-bottom: 1rem;
     }
 
     .feature-item h3 {
-        font-size: 1.5rem;
-        font-weight: 600;
+        font-size: 1.6rem;
+        font-weight: 700;
         color: #2d3748;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.8rem;
     }
 
     .feature-item p {
         color: #718096;
-        font-size: 1rem;
-        line-height: 1.6;
+        font-size: 1.1rem;
+        line-height: 1.7;
     }
 
+    /* Final CTA */
+    .final-cta {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 24px;
+        margin-top: 4rem;
+    }
+
+        .final-cta h2 {
+            font-size: 3rem;
+            font-weight: 800;
+            color: #2d3748;
+            margin-bottom: 2rem;
+        }
+
+    /* Responsive Design */
     @@media (max-width: 768px) {
         .hero-title {
             font-size: 2.5rem;
         }
 
-        .welcome-title {
-            font-size: 2rem;
+        .cta-big-text {
+            font-size: 3rem;
         }
 
-        .feature-grid {
+        .groove-title {
+            font-size: 2.5rem;
+        }
+
+        .welcome-back {
+            font-size: 1.5rem;
+        }
+
+        .feature-grid, .feature-grid-landing {
             grid-template-columns: 1fr;
+        }
+
+        .btn-large {
+            font-size: 1.2rem;
+            padding: 1.2rem 2.5rem;
         }
     }
 </style>

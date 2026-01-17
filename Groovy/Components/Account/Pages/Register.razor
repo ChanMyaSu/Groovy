@@ -45,6 +45,16 @@
                 <label for="email">Last Name</label>
                 <ValidationMessage For="() => Input.LastName" class="text-danger" />
             </div>
+            
+            <div class="form-floating mb-3">
+                <InputSelect @bind-Value="Input.Role" class="form-select" aria-required="true">
+                    <option value="">-- Select Role --</option>
+                    <option value="User">User</option>
+                    <option value="Artist">Artist</option>
+                </InputSelect>
+                <label for="role">Register as</label>
+                <ValidationMessage For="() => Input.Role" class="text-danger" />
+            </div>
             <div class="form-floating mb-3">
                 <InputText type="password" @bind-Value="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" placeholder="password" />
                 <label for="password">Password</label>
@@ -96,19 +106,19 @@
             identityErrors = result.Errors;
             return;
         }
-        //create the user role if it doesn't exist
-        if (!await RoleManager.RoleExistsAsync("User"))
+        if (!await RoleManager.RoleExistsAsync(Input.Role))
         {
-            await RoleManager.CreateAsync(new IdentityRole("User"));
+            await RoleManager.CreateAsync(new IdentityRole(Input.Role));
         }
-        //add the user to the user role
-        await UserManager.AddToRoleAsync(user, "User");
+        await UserManager.AddToRoleAsync(user, Input.Role);
+
+        
         //add the user id as claim when user registers
         await UserManager.AddClaimAsync(user, new System.Security.Claims.Claim("userId",
         user.Id));
 
-
-        Logger.LogInformation("User created a new account with password.");
+        Logger.LogInformation($"User created a new account with password and assigned to {Input.Role} role.");
+        
 
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
@@ -166,6 +176,10 @@
         [Required]
         [Display(Name = "Last Name")]
         public string LastName { get; set; } = "";
+
+        [Required]
+        [Display(Name = "Role")]
+        public string Role { get; set; } = "";
 
         [Required]
         [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
