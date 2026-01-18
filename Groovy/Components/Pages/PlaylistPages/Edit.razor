@@ -1,4 +1,5 @@
 ﻿@page "/playlists/edit"
+@rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Components.Authorization
 @using Groovy.Domain
@@ -37,6 +38,7 @@ else
 @code {
     private Playlist? playlist;
     private string Status = "";
+    private string? UserId;
 
     [SupplyParameterFromQuery] private int Id { get; set; }
 
@@ -51,7 +53,7 @@ else
             return;
         }
 
-        var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        UserId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
         using var db = DbFactory.CreateDbContext();
         playlist = await db.Playlist.FirstOrDefaultAsync(p => p.Id == Id);
@@ -62,7 +64,7 @@ else
             return;
         }
 
-        if (playlist.AppUserId != userId)
+        if (playlist.AppUserId != UserId)
         {
             Nav.NavigateTo("/playlists");
             return;
@@ -83,11 +85,15 @@ else
 
         using var db = DbFactory.CreateDbContext();
         var dbPlaylist = await db.Playlist.FirstOrDefaultAsync(p => p.Id == playlist.Id);
-        if (dbPlaylist == null) return;
+        if (dbPlaylist == null)
+        {
+            Status = "Playlist not found.";
+            return;
+        }
 
         dbPlaylist.Name = name;
         dbPlaylist.DateUpdated = DateTime.UtcNow;
-        dbPlaylist.UpdatedBy = "System";
+        dbPlaylist.UpdatedBy = UserId ?? "System";
 
         await db.SaveChangesAsync();
         Nav.NavigateTo($"/playlists/details?id={dbPlaylist.Id}");
