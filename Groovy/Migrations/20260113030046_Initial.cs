@@ -112,6 +112,7 @@ namespace Groovy.Migrations
                     Title = table.Column<string>(type: "nvarchar(160)", maxLength: 160, nullable: false),
                     DurationSec = table.Column<int>(type: "int", nullable: false),
                     ReleaseDate = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    AudioFilePath = table.Column<string>(type:"nvarchar(500)", maxLength: 500, nullable: false),
                     Bpm = table.Column<int>(type: "int", nullable: false),
                     Energy = table.Column<int>(type: "int", nullable: false),
                     MoodTag = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),

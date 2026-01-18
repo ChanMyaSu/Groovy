@@ -45,6 +45,10 @@ builder.Services.AddIdentityCore<GroovyUser>(options => options.SignIn.RequireCo
 
 builder.Services.AddSingleton<IEmailSender<GroovyUser>, IdentityNoOpEmailSender>();
 
+// Register Library Services
+builder.Services.AddScoped<Groovy.Services.IListeningHistoryService, Groovy.Services.ListeningHistoryService>();
+builder.Services.AddScoped<Groovy.Services.IAudioFileService, Groovy.Services.AudioFileService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

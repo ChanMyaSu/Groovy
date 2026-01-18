@@ -1,0 +1,202 @@
+@page "/admin/setup-audio"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Groovy.Domain
+@using Groovy.Data
+@inject IDbContextFactory<GroovyContext> DbFactory
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Administrator")]
+
+<PageTitle>Setup Audio Paths - Groovy</PageTitle>
+
+<div class="container mt-5">
+    <h1>🎵 Setup Audio Paths for Songs</h1>
+    <p class="text-muted">This will add sample audio paths to your songs</p>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert @alertClass">
+            @message
+        </div>
+    }
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3>Current Songs Without Audio</h3>
+        </div>
+        <div class="card-body">
+            @if (songsWithoutAudio.Any())
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Duration</th>
+                            <th>Current Path</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var song in songsWithoutAudio)
+                        {
+                            <tr>
+                                <td>@song.Id</td>
+                                <td>@song.Title</td>
+                                <td>@FormatDuration(song.DurationSec)</td>
+                                <td>
+                                    @if (string.IsNullOrEmpty(song.AudioFilePath))
+                                    {
+                                        <span class="badge bg-danger">No Audio</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-success">@song.AudioFilePath</span>
+                                    }
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary" 
+                                            @onclick="() => AddAudioPath(song.Id)">
+                                        Add Sample Path
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <button class="btn btn-success btn-lg mt-3" @onclick="AddAllAudioPaths">
+                    Add Audio Paths to ALL Songs
+                </button>
+            }
+            else
+            {
+                <div class="alert alert-success">
+                    ✅ All songs have audio paths!
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h3>Songs With Audio</h3>
+        </div>
+        <div class="card-body">
+            @if (songsWithAudio.Any())
+            {
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Audio Path</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var song in songsWithAudio)
+                        {
+                            <tr>
+                                <td>@song.Id</td>
+                                <td>@song.Title</td>
+                                <td><code>@song.AudioFilePath</code></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else
+            {
+                <div class="alert alert-warning">
+                    No songs have audio paths yet.
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="alert alert-info mt-4">
+        <h4>⚠️ Important:</h4>
+        <p>This only adds the <strong>database paths</strong>. You still need to:</p>
+        <ol>
+            <li>Create folder: <code>/wwwroot/audio/</code></li>
+            <li>Add actual MP3 files: <code>sample1.mp3</code>, <code>sample2.mp3</code>, etc.</li>
+            <li>Download free music from:
+                <ul>
+                    <li><a href="https://incompetech.com/music/royalty-free/" target="_blank">Incompetech</a></li>
+                    <li><a href="https://freemusicarchive.org/" target="_blank">Free Music Archive</a></li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+</div>
+
+@code {
+    private List<Song> songsWithoutAudio = new();
+    private List<Song> songsWithAudio = new();
+    private string message = "";
+    private string alertClass = "alert-info";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSongs();
+    }
+
+    private async Task LoadSongs()
+    {
+        using var context = DbFactory.CreateDbContext();
+        
+        var allSongs = await context.Song.OrderBy(s => s.Id).ToListAsync();
+        
+        songsWithoutAudio = allSongs.Where(s => string.IsNullOrEmpty(s.AudioFilePath)).ToList();
+        songsWithAudio = allSongs.Where(s => !string.IsNullOrEmpty(s.AudioFilePath)).ToList();
+    }
+
+    private async Task AddAudioPath(int songId)
+    {
+        using var context = DbFactory.CreateDbContext();
+        
+        var song = await context.Song.FindAsync(songId);
+        if (song != null)
+        {
+            song.AudioFilePath = $"/audio/sample{songId}.mp3";
+            song.DateUpdated = DateTime.UtcNow;
+            
+            await context.SaveChangesAsync();
+            
+            message = $"✅ Added audio path to song: {song.Title}";
+            alertClass = "alert-success";
+            
+            await LoadSongs();
+        }
+    }
+
+    private async Task AddAllAudioPaths()
+    {
+        using var context = DbFactory.CreateDbContext();
+        
+        var songs = await context.Song
+            .Where(s => string.IsNullOrEmpty(s.AudioFilePath))
+            .ToListAsync();
+        
+        int count = 0;
+        foreach (var song in songs)
+        {
+            song.AudioFilePath = $"/audio/sample{song.Id}.mp3";
+            song.DateUpdated = DateTime.UtcNow;
+            count++;
+        }
+        
+        await context.SaveChangesAsync();
+        
+        message = $"✅ Added audio paths to {count} songs!";
+        alertClass = "alert-success";
+        
+        await LoadSongs();
+    }
+
+    private string FormatDuration(int seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}";
+    }
+}

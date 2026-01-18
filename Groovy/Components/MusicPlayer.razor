@@ -1,0 +1,395 @@
+﻿
+@using Groovy.Services
+@using Groovy.Domain
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@inject IListeningHistoryService ListeningHistoryService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
+
+<div class="music-player-container">
+    @if (!string.IsNullOrEmpty(CurrentSong?.AudioFilePath))
+    {
+        <div class="music-player">
+            <div class="player-info">
+                <div class="song-icon">🎵</div>
+                <div class="song-details">
+                    <div class="song-title">@CurrentSong.Title</div>
+                    <div class="song-meta">
+                        <span class="current-time">@FormatTime(currentTime)</span>
+                        <span class="separator">/</span>
+                        <span class="total-time">@FormatTime(CurrentSong.DurationSec)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="player-controls">
+                <button class="btn-control" @onclick="TogglePlayPause" disabled="@isLoading">
+                    @if (isPlaying)
+                    {
+                        <span class="icon">⏸</span>
+                    }
+                    else
+                    {
+                        <span class="icon">▶️</span>
+                    }
+                </button>
+                <button class="btn-control btn-stop" @onclick="Stop">
+                    <span class="icon">⏹</span>
+                </button>
+            </div>
+
+            <div class="progress-container">
+                <input type="range"
+                       class="progress-bar"
+                       min="0"
+                       max="@CurrentSong.DurationSec"
+                       value="@currentTime"
+                       @oninput="SeekTo"
+                       disabled="@isLoading" />
+                <div class="progress-fill" style="width: @(progressPercent)%"></div>
+            </div>
+
+            <audio id="@audioElementId"
+                   src="@CurrentSong.AudioFilePath"
+                   @ref="audioElement"
+                   @ontimeupdate="OnTimeUpdate"
+                   @onended="OnSongEnded"
+                   @onplay="OnPlay"
+                   @onpause="OnPause">
+            </audio>
+        </div>
+    }
+    else
+    {
+        <div class="no-audio-message">
+            <span class="icon">🎵</span>
+            <span>No audio file available</span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Song? CurrentSong { get; set; }
+
+    [Parameter]
+    public EventCallback<Song> OnSongChange { get; set; }
+
+    private ElementReference audioElement;
+    private string audioElementId = $"audio-player-{Guid.NewGuid()}";
+    private bool isPlaying = false;
+    private bool isLoading = false;
+    private double currentTime = 0;
+    private double progressPercent = 0;
+    private int? currentHistoryId = null;
+    private string? currentUserId = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                       ?? user.FindFirst("userId")?.Value;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Reset player when song changes
+        if (CurrentSong != null)
+        {
+            await Stop();
+        }
+    }
+
+    private async Task TogglePlayPause()
+    {
+        if (isPlaying)
+        {
+            await Pause();
+        }
+        else
+        {
+            await Play();
+        }
+    }
+
+    private async Task Play()
+    {
+        if (CurrentSong == null || string.IsNullOrEmpty(CurrentSong.AudioFilePath))
+            return;
+
+        try
+        {
+            isLoading = true;
+            StateHasChanged();
+
+            // Record play in listening history
+            if (currentUserId != null && currentHistoryId == null)
+            {
+                await ListeningHistoryService.RecordPlayAsync(currentUserId, CurrentSong.Id);
+            }
+
+            await JS.InvokeVoidAsync("eval", $"document.getElementById('{audioElementId}').play()");
+            isPlaying = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error playing audio: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Pause()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", $"document.getElementById('{audioElementId}').pause()");
+            isPlaying = false;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error pausing audio: {ex.Message}");
+        }
+    }
+
+    private async Task Stop()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", $"document.getElementById('{audioElementId}').pause()");
+            await JS.InvokeVoidAsync("eval", $"document.getElementById('{audioElementId}').currentTime = 0");
+            isPlaying = false;
+            currentTime = 0;
+            progressPercent = 0;
+            currentHistoryId = null;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error stopping audio: {ex.Message}");
+        }
+    }
+
+    private async Task SeekTo(ChangeEventArgs e)
+    {
+        if (e.Value != null && double.TryParse(e.Value.ToString(), out double seekTime))
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("eval", $"document.getElementById('{audioElementId}').currentTime = {seekTime}");
+                currentTime = seekTime;
+                UpdateProgress();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error seeking: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task OnTimeUpdate()
+    {
+        try
+        {
+            var time = await JS.InvokeAsync<double>("eval", $"document.getElementById('{audioElementId}').currentTime");
+            currentTime = time;
+            UpdateProgress();
+        }
+        catch
+        {
+            // Ignore errors during time update
+        }
+    }
+
+    private void UpdateProgress()
+    {
+        if (CurrentSong != null && CurrentSong.DurationSec > 0)
+        {
+            progressPercent = (currentTime / CurrentSong.DurationSec) * 100;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnSongEnded()
+    {
+        isPlaying = false;
+
+        // Update listening history as completed
+        if (currentHistoryId.HasValue)
+        {
+            await ListeningHistoryService.UpdatePlayDurationAsync(currentHistoryId.Value, 100, false);
+        }
+
+        StateHasChanged();
+    }
+
+    private void OnPlay()
+    {
+        isPlaying = true;
+        StateHasChanged();
+    }
+
+    private void OnPause()
+    {
+        isPlaying = false;
+
+        // Update listening history with current progress
+        if (currentHistoryId.HasValue && CurrentSong != null)
+        {
+            var percent = (int)((currentTime / CurrentSong.DurationSec) * 100);
+            bool skipped = percent < 80; // Consider skipped if less than 80% played
+            _ = ListeningHistoryService.UpdatePlayDurationAsync(currentHistoryId.Value, percent, skipped);
+        }
+
+        StateHasChanged();
+    }
+
+    private string FormatTime(double seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}";
+    }
+}
+
+<style>
+    .music-player-container {
+        width: 100%;
+        margin: 1rem 0;
+    }
+
+    .music-player {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+        color: white;
+    }
+
+    .player-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .song-icon {
+        font-size: 3rem;
+    }
+
+    .song-details {
+        flex: 1;
+    }
+
+    .song-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 0.3rem;
+    }
+
+    .song-meta {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    .separator {
+        margin: 0 0.5rem;
+    }
+
+    .player-controls {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-bottom: 1rem;
+    }
+
+    .btn-control {
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid white;
+        color: white;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .btn-control:hover:not(:disabled) {
+            background: white;
+            color: #667eea;
+            transform: scale(1.1);
+        }
+
+        .btn-control:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-control .icon {
+            font-size: 1.5rem;
+        }
+
+    .btn-stop {
+        width: 50px;
+        height: 50px;
+    }
+
+        .btn-stop .icon {
+            font-size: 1.2rem;
+        }
+
+    .progress-container {
+        position: relative;
+        width: 100%;
+        height: 8px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        z-index: 2;
+    }
+
+    .progress-fill {
+        position: absolute;
+        height: 100%;
+        background: white;
+        border-radius: 4px;
+        transition: width 0.1s ease;
+    }
+
+    .no-audio-message {
+        background: #f5f7fa;
+        border: 2px dashed #cbd5e0;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        color: #718096;
+        font-size: 1.1rem;
+    }
+
+        .no-audio-message .icon {
+            font-size: 3rem;
+            display: block;
+            margin-bottom: 0.5rem;
+            opacity: 0.5;
+        }
+
+    audio {
+        display: none;
+    }
+</style>

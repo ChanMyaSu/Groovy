@@ -1,0 +1,544 @@
+﻿@page "/library"
+@rendermode InteractiveServer
+@using Groovy.Components.Pages
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Groovy.Domain
+@using Groovy.Data
+@inject IDbContextFactory<GroovyContext> DbFactory
+@implements IAsyncDisposable
+@attribute [Authorize]
+
+<PageTitle>Library - Groovy</PageTitle>
+
+<div class="library-container">
+    <div class="library-header">
+        <h1 class="library-title">🎵 Music Library</h1>
+        <p class="library-subtitle">Explore artists, genres, and songs</p>
+    </div>
+
+    <!-- Tabs -->
+
+    <div class="library-tabs">
+        <button class="tab-button @(activeTab == "artists" ? "active" : "")" 
+                @onclick='() => SetActiveTab("artists")'>
+            <span class="tab-icon">👨‍🎤</span>
+            Artists
+        </button>
+        <button class="tab-button @(activeTab == "genres" ? "active" : "")" 
+                @onclick='() => SetActiveTab("genres")'>
+            <span class="tab-icon">🎭</span>
+            Genres
+        </button>
+        <button class="tab-button @(activeTab == "songs" ? "active" : "")" 
+                @onclick='() => SetActiveTab("songs")'>
+            <span class="tab-icon">🎵</span>
+            Songs
+        </button>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="search-container">
+        <input type="text" 
+               class="search-input" 
+               placeholder="Search..." 
+               @bind="searchQuery"
+               @bind:event="oninput" 
+               @onkeyup="OnSearchChanged" />
+        <span class="search-icon">🔍</span>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+        @if (activeTab == "artists")
+        {
+            <div class="list-container">
+                <h2 class="section-heading">All Artists (@FilteredArtists.Count())</h2>
+
+                @if (FilteredArtists.Any())
+                {
+                    <div class="items-list">
+                        @foreach (var artist in FilteredArtists)
+                        {
+                            <div class="list-item">
+                                <div class="item-icon artist-icon-small">👨‍🎤</div>
+                                <div class="item-info">
+                                    <div class="item-title">@artist.Name</div>
+                                    @if (!string.IsNullOrEmpty(artist.Name))
+                                    {
+                                        <div class="item-subtitle">@artist.Name</div>
+                                    }
+                                </div>
+                                <div class="item-actions">
+                                    <a href="@($"/artists/details?id={artist.Id}")" class="btn-details">View Details</a>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="no-results">No artists found</div>
+                }
+            </div>
+        
+        }
+        else if (activeTab == "genres")
+        {
+            <div class="genres-grid">
+                @foreach (var genre in FilteredGenres)
+                {
+                    <a href="@($"/genres/details?id={genre.Id}")" class="genre-card-link">
+                        <div class="genre-card">
+                            <div class="genre-icon">🎭</div>
+                            <h3 class="genre-name">@genre.Name</h3>
+                            <div class="view-link">View Details →</div>
+                        </div>
+                    </a>
+                }
+                @if (!FilteredGenres.Any())
+                {
+                    <div class="no-results">No genres found</div>
+                }
+            </div>
+        }
+        else if (activeTab == "songs")
+        {
+            <!-- Music Player -->
+            @if (currentSong != null)
+            {
+                <div class="current-player">
+                    <MusicPlayer CurrentSong="@currentSong" />
+                </div>
+            }
+
+            <div class="songs-list">
+                @foreach (var song in FilteredSongs)
+                {
+                    <div class="song-item @(currentSong?.Id == song.Id ? "playing" : "")">
+                        <button class="btn-play" @onclick="() => PlaySong(song)" disabled="@(string.IsNullOrEmpty(song.AudioFilePath))">
+                            @if (currentSong?.Id == song.Id)
+                            {
+                                <span class="play-icon">🎵</span>
+                            }
+                            else if (!string.IsNullOrEmpty(song.AudioFilePath))
+                            {
+                                <span class="play-icon">▶️</span>
+                            }
+                            else
+                            {
+                                <span class="play-icon">🚫</span>
+                            }
+                        </button>
+                        <div class="song-info">
+                            <div class="song-title">@song.Title</div>
+                            <div class="song-meta">
+                                <span class="duration">@FormatDuration(song.DurationSec)</span>
+                                @if (!string.IsNullOrEmpty(song.MoodTag))
+                                {
+                                    <span class="mood-tag">@song.MoodTag</span>
+                                }
+                                @if (string.IsNullOrEmpty(song.AudioFilePath))
+                                {
+                                    <span class="no-audio">No audio file</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="song-actions">
+                            <a href="@($"/songs/details?id={song.Id}")" class="btn-details">Details</a>
+                        </div>
+                    </div>
+                }
+                @if (!FilteredSongs.Any())
+                {
+                    <div class="no-results">No songs found</div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private GroovyContext context = default!;
+    private string activeTab = "songs";
+    private string searchQuery = "";
+    private Song? currentSong = null;
+
+    private List<Artist> artists = new();
+    private List<Genre> genres = new();
+    private List<Song> songs = new();
+
+    private IEnumerable<Artist> FilteredArtists => 
+        string.IsNullOrWhiteSpace(searchQuery) 
+            ? artists 
+            : artists.Where(a => a.Name != null && a.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<Genre> FilteredGenres => 
+        string.IsNullOrWhiteSpace(searchQuery) 
+            ? genres 
+            : genres.Where(g => g.Name != null && g.Name.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<Song> FilteredSongs => 
+        string.IsNullOrWhiteSpace(searchQuery) 
+            ? songs 
+            : songs.Where(s => s.Title != null && s.Title.Contains(searchQuery, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        context = DbFactory.CreateDbContext();
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        artists = await context.Artist.OrderBy(a => a.Name).ToListAsync();
+        genres = await context.Genre.OrderBy(g => g.Name).ToListAsync();
+        songs = await context.Song.OrderBy(s => s.Title).ToListAsync();
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        activeTab = tab;
+        searchQuery = "";
+        currentSong = null;
+    }
+
+    private void OnSearchChanged()
+    {
+        StateHasChanged();
+    }
+
+    private void PlaySong(Song song)
+    {
+        if (!string.IsNullOrEmpty(song.AudioFilePath))
+        {
+            currentSong = song;
+            StateHasChanged();
+        }
+    }
+
+    private string FormatDuration(int seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (context != null)
+        {
+            await context.DisposeAsync();
+        }
+    }
+}
+
+<style>
+    .library-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+
+    .library-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .library-title {
+        font-size: 3rem;
+        font-weight: 800;
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+    }
+
+    .library-subtitle {
+        font-size: 1.2rem;
+        color: #718096;
+    }
+
+    .library-tabs {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        border-bottom: 2px solid #e2e8f0;
+        justify-content: center;
+    }
+
+    .tab-button {
+        background: none;
+        border: none;
+        padding: 1rem 2rem;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #718096;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .tab-button:hover {
+        color: #667eea;
+    }
+
+    .tab-button.active {
+        color: #667eea;
+        border-bottom-color: #667eea;
+    }
+
+    .tab-icon {
+        font-size: 1.5rem;
+    }
+
+    .search-container {
+        position: relative;
+        max-width: 600px;
+        margin: 0 auto 2rem;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 1rem 3rem 1rem 1rem;
+        font-size: 1.1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 12px;
+        transition: all 0.3s ease;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .search-icon {
+        position: absolute;
+        right: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1.5rem;
+        opacity: 0.5;
+    }
+
+    /* Artists Grid */
+    .artists-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .artist-card-link {
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .artist-card {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+
+    .artist-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+        border-color: #667eea;
+    }
+
+    .artist-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .artist-name {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 1rem;
+    }
+
+    /* Genres Grid */
+    .genres-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .genre-card-link {
+        text-decoration: none;
+        color: inherit;
+    }
+
+    .genre-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+        color: white;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .genre-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 12px 24px rgba(102, 126, 234, 0.4);
+    }
+
+    .genre-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .genre-name {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    /* Songs List */
+    .current-player {
+        margin-bottom: 2rem;
+    }
+
+    .songs-list {
+        background: white;
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .song-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        border-bottom: 1px solid #e2e8f0;
+        transition: all 0.2s ease;
+    }
+
+    .song-item:last-child {
+        border-bottom: none;
+    }
+
+    .song-item:hover {
+        background: #f7fafc;
+    }
+
+    .song-item.playing {
+        background: #edf2f7;
+        border-left: 4px solid #667eea;
+    }
+
+    .btn-play {
+        background: #667eea;
+        color: white;
+        border: none;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .btn-play:hover:not(:disabled) {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-play:disabled {
+        background: #cbd5e0;
+        cursor: not-allowed;
+    }
+
+    .play-icon {
+        font-size: 1.2rem;
+    }
+
+    .song-info {
+        flex: 1;
+    }
+
+    .song-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 0.3rem;
+    }
+
+    .song-meta {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.9rem;
+        color: #718096;
+    }
+
+    .mood-tag {
+        background: #edf2f7;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+    }
+
+    .no-audio {
+        background: #fed7d7;
+        color: #c53030;
+        padding: 0.2rem 0.6rem;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .song-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-details, .view-link {
+        padding: 0.5rem 1rem;
+        background: transparent;
+        color: #667eea;
+        border: 2px solid #667eea;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        display: inline-block;
+    }
+
+    .btn-details:hover, .view-link:hover {
+        background: #667eea;
+        color: white;
+    }
+
+    .no-results {
+        text-align: center;
+        padding: 4rem 2rem;
+        font-size: 1.2rem;
+        color: #718096;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .library-tabs {
+            flex-direction: column;
+        }
+
+        .artists-grid, .genres-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .song-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+</style>

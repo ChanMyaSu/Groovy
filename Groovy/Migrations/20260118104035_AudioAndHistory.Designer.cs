@@ -4,6 +4,7 @@ using Groovy.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Groovy.Migrations
 {
     [DbContext(typeof(GroovyContext))]
-    partial class GroovyContextModelSnapshot : ModelSnapshot
+    [Migration("20260118104035_AudioAndHistory")]
+    partial class AudioAndHistory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -97,7 +100,7 @@ namespace Groovy.Migrations
                         {
                             Id = "3781efa7-66dc-47f0-860f-e506d04102e4",
                             AccessFailedCount = 0,
-                            ConcurrencyStamp = "4abedd4b-e6b0-48a3-af56-1889c3e0dac8",
+                            ConcurrencyStamp = "7474434b-3bf4-41d2-b54b-49750f27f5d3",
                             Email = "admin@localhost.com",
                             EmailConfirmed = true,
                             FirstName = "Admin",
@@ -105,9 +108,9 @@ namespace Groovy.Migrations
                             LockoutEnabled = false,
                             NormalizedEmail = "ADMIN@LOCALHOST.COM",
                             NormalizedUserName = "ADMIN@LOCALHOST.COM",
-                            PasswordHash = "AQAAAAIAAYagAAAAELEVC0pRHATSCaM1en0IMaccKXP8aD/BkfM/YBdgqBhVdnroiuvJORm1GMtMrAHaaA==",
+                            PasswordHash = "AQAAAAIAAYagAAAAEElduTiZZhH7cnHyDuJxKSJQN1x0/x/KTbj26p6yRXDpurtLSekJCY1W+vLENC4SDA==",
                             PhoneNumberConfirmed = false,
-                            SecurityStamp = "3231bcb2-daec-48e2-b994-74249d99d96e",
+                            SecurityStamp = "8706574f-c4c2-4b09-a1ea-e301360922e1",
                             TwoFactorEnabled = false,
                             UserName = "admin@localhost.com"
                         });
@@ -184,8 +187,8 @@ namespace Groovy.Migrations
                         {
                             Id = 1,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 19, 33, 55, 126, DateTimeKind.Local).AddTicks(5496),
-                            DateUpdated = new DateTime(2026, 1, 18, 19, 33, 55, 126, DateTimeKind.Local).AddTicks(5527),
+                            DateCreated = new DateTime(2026, 1, 18, 18, 40, 32, 508, DateTimeKind.Local).AddTicks(2058),
+                            DateUpdated = new DateTime(2026, 1, 18, 18, 40, 32, 508, DateTimeKind.Local).AddTicks(2086),
                             Name = "Michael Jackson",
                             UpdatedBy = "System"
                         },
@@ -193,8 +196,8 @@ namespace Groovy.Migrations
                         {
                             Id = 2,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 19, 33, 55, 126, DateTimeKind.Local).AddTicks(5533),
-                            DateUpdated = new DateTime(2026, 1, 18, 19, 33, 55, 126, DateTimeKind.Local).AddTicks(5535),
+                            DateCreated = new DateTime(2026, 1, 18, 18, 40, 32, 508, DateTimeKind.Local).AddTicks(2095),
+                            DateUpdated = new DateTime(2026, 1, 18, 18, 40, 32, 508, DateTimeKind.Local).AddTicks(2098),
                             Name = "Madonna",
                             UpdatedBy = "System"
                         });
@@ -234,8 +237,8 @@ namespace Groovy.Migrations
                         {
                             Id = 1,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 19, 33, 55, 126, DateTimeKind.Local).AddTicks(6171),
-                            DateUpdated = new DateTime(2026, 1, 18, 19, 33, 55, 126, DateTimeKind.Local).AddTicks(6174),
+                            DateCreated = new DateTime(2026, 1, 18, 18, 40, 32, 508, DateTimeKind.Local).AddTicks(2817),
+                            DateUpdated = new DateTime(2026, 1, 18, 18, 40, 32, 508, DateTimeKind.Local).AddTicks(2820),
                             Name = "Pop",
                             UpdatedBy = "System"
                         },
@@ -243,8 +246,8 @@ namespace Groovy.Migrations
                         {
                             Id = 2,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 19, 33, 55, 126, DateTimeKind.Local).AddTicks(6181),
-                            DateUpdated = new DateTime(2026, 1, 18, 19, 33, 55, 126, DateTimeKind.Local).AddTicks(6183),
+                            DateCreated = new DateTime(2026, 1, 18, 18, 40, 32, 508, DateTimeKind.Local).AddTicks(2826),
+                            DateUpdated = new DateTime(2026, 1, 18, 18, 40, 32, 508, DateTimeKind.Local).AddTicks(2828),
                             Name = "Rock",
                             UpdatedBy = "System"
                         });
@@ -459,8 +462,8 @@ namespace Groovy.Migrations
                             Id = 1,
                             Bpm = 128,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(6512),
-                            DateUpdated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(6514),
+                            DateCreated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3151),
+                            DateUpdated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3153),
                             DurationSec = 245,
                             Energy = 70,
                             MoodTag = "chill",
@@ -473,8 +476,8 @@ namespace Groovy.Migrations
                             Id = 2,
                             Bpm = 115,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(6524),
-                            DateUpdated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(6526),
+                            DateCreated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3282),
+                            DateUpdated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3284),
                             DurationSec = 198,
                             Energy = 85,
                             MoodTag = "happy",
@@ -487,8 +490,8 @@ namespace Groovy.Migrations
                             Id = 3,
                             Bpm = 140,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(6534),
-                            DateUpdated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(6536),
+                            DateCreated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3294),
+                            DateUpdated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3295),
                             DurationSec = 312,
                             Energy = 95,
                             MoodTag = "energetic",
@@ -501,8 +504,8 @@ namespace Groovy.Migrations
                             Id = 4,
                             Bpm = 90,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7077),
-                            DateUpdated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7080),
+                            DateCreated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3303),
+                            DateUpdated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3304),
                             DurationSec = 267,
                             Energy = 40,
                             MoodTag = "relaxed",
@@ -515,8 +518,8 @@ namespace Groovy.Migrations
                             Id = 5,
                             Bpm = 132,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7093),
-                            DateUpdated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7094),
+                            DateCreated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3312),
+                            DateUpdated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3314),
                             DurationSec = 223,
                             Energy = 88,
                             MoodTag = "energetic",
@@ -529,8 +532,8 @@ namespace Groovy.Migrations
                             Id = 6,
                             Bpm = 105,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7102),
-                            DateUpdated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7103),
+                            DateCreated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3322),
+                            DateUpdated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3323),
                             DurationSec = 189,
                             Energy = 55,
                             MoodTag = "chill",
@@ -543,8 +546,8 @@ namespace Groovy.Migrations
                             Id = 7,
                             Bpm = 145,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7118),
-                            DateUpdated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7119),
+                            DateCreated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3331),
+                            DateUpdated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3332),
                             DurationSec = 298,
                             Energy = 92,
                             MoodTag = "energetic",
@@ -557,8 +560,8 @@ namespace Groovy.Migrations
                             Id = 8,
                             Bpm = 75,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7126),
-                            DateUpdated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7127),
+                            DateCreated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3340),
+                            DateUpdated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3342),
                             DurationSec = 334,
                             Energy = 30,
                             MoodTag = "relaxed",
@@ -571,8 +574,8 @@ namespace Groovy.Migrations
                             Id = 9,
                             Bpm = 95,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7134),
-                            DateUpdated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7135),
+                            DateCreated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3349),
+                            DateUpdated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3351),
                             DurationSec = 210,
                             Energy = 78,
                             MoodTag = "chill",
@@ -585,8 +588,8 @@ namespace Groovy.Migrations
                             Id = 10,
                             Bpm = 110,
                             CreatedBy = "System",
-                            DateCreated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7156),
-                            DateUpdated = new DateTime(2026, 1, 18, 11, 33, 55, 126, DateTimeKind.Utc).AddTicks(7157),
+                            DateCreated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3374),
+                            DateUpdated = new DateTime(2026, 1, 18, 10, 40, 32, 508, DateTimeKind.Utc).AddTicks(3375),
                             DurationSec = 176,
                             Energy = 65,
                             MoodTag = "happy",
