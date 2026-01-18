@@ -1,15 +1,15 @@
-﻿namespace Groovy.Domain
-{
-    public class PlaylistSong
+﻿    namespace Groovy.Domain
     {
-        public int PlaylistId { get; set; }
-        public int SongId { get; set; }
+        public class PlaylistSong
+        {
+            public int PlaylistId { get; set; }
+            public int SongId { get; set; }
 
         
 
 
-        // Navigation
-        public Playlist? Playlist { get; set; }
-        public Song? Song { get; set; }
+            // Navigation
+            public Playlist? Playlist { get; set; }
+            public Song? Song { get; set; }
+        }
     }
-}

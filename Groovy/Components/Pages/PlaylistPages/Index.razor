@@ -1,41 +1,127 @@
 ﻿@page "/playlists"
+@rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
-@using Microsoft.AspNetCore.Components.QuickGrid
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
 @using Groovy.Domain
-@using Groovy.Data
-@implements IAsyncDisposable
 @inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+@inject AuthenticationStateProvider Auth
+@inject NavigationManager Nav
 
-<PageTitle>Index</PageTitle>
+<PageTitle>Playlists</PageTitle>
 
-<h1>Index</h1>
+<div class="d-flex align-items-start justify-content-between mb-3">
+    <div>
+        <h2 class="mb-1">My Playlists</h2>
+        <div class="text-muted">Click a playlist to view songs</div>
+    </div>
 
-<p>
-    <a href="playlists/create">Create New</a>
-</p>
+    <a class="btn btn-outline-primary" href="/magic-playlists">+ Magic Playlist</a>
+</div>
 
-<QuickGrid Class="table" Items="context.Playlist">
-    <PropertyColumn Property="playlist => playlist.Name" />
-    <PropertyColumn Property="playlist => playlist.AppUserId" />
-    <PropertyColumn Property="playlist => playlist.DateCreated" />
-    <PropertyColumn Property="playlist => playlist.DateUpdated" />
-    <PropertyColumn Property="playlist => playlist.CreatedBy" />
-    <PropertyColumn Property="playlist => playlist.UpdatedBy" />
+@if (!string.IsNullOrWhiteSpace(Status))
+{
+    <div class="alert alert-info py-2">@Status</div>
+}
 
-    <TemplateColumn Context="playlist">
-        <a href="@($"playlists/edit?id={playlist.Id}")">Edit</a> |
-        <a href="@($"playlists/details?id={playlist.Id}")">Details</a> |
-        <a href="@($"playlists/delete?id={playlist.Id}")">Delete</a>
-    </TemplateColumn>
-</QuickGrid>
+@if (Playlists.Count == 0)
+{
+    <div class="text-muted">No playlists yet. Use Magic Playlist to generate one.</div>
+}
+else
+{
+    <div class="d-flex flex-wrap gap-3">
+        @foreach (var p in Playlists)
+        {
+            <div class="card shadow-sm" style="width: 220px; border-radius: 14px; overflow: hidden;">
+                <div class="card-body" style="background: linear-gradient(180deg, rgba(229,241,255,0.95), rgba(243,248,255,0.95));">
+                    <div class="d-flex align-items-start justify-content-between gap-2">
+                        <div class="fw-semibold text-truncate" style="max-width: 120px;">@p.Name</div>
+
+                        <!-- RENAME: this is the important fix -->
+                        <a class="btn btn-sm btn-outline-primary"
+                           href="/playlists/edit?id=@p.Id">
+                            Rename
+                        </a>
+                    </div>
+
+                    <div class="text-muted small mt-2">
+                        @p.SongCount songs • @p.DateText
+                    </div>
+
+                    <div class="mt-3">
+                        <a class="btn btn-sm btn-outline-primary"
+                           href="/playlists/details?id=@p.Id">
+                            Open
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
 
 @code {
-    private GroovyContext context = default!;
-
-    protected override void OnInitialized()
+    class PlaylistCardVm
     {
-        context = DbFactory.CreateDbContext();
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public int SongCount { get; set; }
+        public string DateText { get; set; } = "";
     }
 
-    public async ValueTask DisposeAsync() => await context.DisposeAsync();
+    List<PlaylistCardVm> Playlists = new();
+    string Status = "";
+    string? UserId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await Auth.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user?.Identity?.IsAuthenticated != true)
+        {
+            Nav.NavigateTo("/Account/Login");
+            return;
+        }
+
+        UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        using var db = DbFactory.CreateDbContext();
+
+        var playlists = await db.Playlist
+            .Where(p => p.AppUserId == UserId)
+            .OrderByDescending(p => p.DateCreated)
+            .Select(p => new
+            {
+                p.Id,
+                p.Name,
+                p.DateCreated
+            })
+            .ToListAsync();
+
+        if (playlists.Count == 0)
+        {
+            Playlists = new();
+            return;
+        }
+
+        var playlistIds = playlists.Select(x => x.Id).ToList();
+
+        var counts = await db.PlaylistSong
+            .Where(ps => playlistIds.Contains(ps.PlaylistId))
+            .GroupBy(ps => ps.PlaylistId)
+            .Select(g => new { PlaylistId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var countMap = counts.ToDictionary(x => x.PlaylistId, x => x.Count);
+
+        Playlists = playlists.Select(p => new PlaylistCardVm
+        {
+            Id = p.Id,
+            Name = p.Name ?? "",
+            SongCount = countMap.TryGetValue(p.Id, out var c) ? c : 0,
+            DateText = (p.DateCreated == default ? DateTime.Now : p.DateCreated).ToString("dd MMM yyyy")
+        }).ToList();
+    }
 }

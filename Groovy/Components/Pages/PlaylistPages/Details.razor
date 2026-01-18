@@ -2,55 +2,85 @@
 @using Microsoft.EntityFrameworkCore
 @using Groovy.Domain
 @inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
-@inject NavigationManager NavigationManager
+@inject NavigationManager Nav
 
-<PageTitle>Details</PageTitle>
+<PageTitle>Playlist</PageTitle>
 
-<h1>Details</h1>
-
-<div>
-    <h2>Playlist</h2>
-    <hr />
-    @if (playlist is null)
-    {
-        <p><em>Loading...</em></p>
-    }
-    else {
-        <dl class="row">
-            <dt class="col-sm-2">Name</dt>
-            <dd class="col-sm-10">@playlist.Name</dd>
-            <dt class="col-sm-2">AppUserId</dt>
-            <dd class="col-sm-10">@playlist.AppUserId</dd>
-            <dt class="col-sm-2">DateCreated</dt>
-            <dd class="col-sm-10">@playlist.DateCreated</dd>
-            <dt class="col-sm-2">DateUpdated</dt>
-            <dd class="col-sm-10">@playlist.DateUpdated</dd>
-            <dt class="col-sm-2">CreatedBy</dt>
-            <dd class="col-sm-10">@playlist.CreatedBy</dd>
-            <dt class="col-sm-2">UpdatedBy</dt>
-            <dd class="col-sm-10">@playlist.UpdatedBy</dd>
-        </dl>
+@if (playlist is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
-            <a href="@($"/playlists/edit?id={playlist.Id}")">Edit</a> |
-            <a href="@($"/playlists")">Back to List</a>
+            <h2 class="mb-0">@playlist.Name</h2>
+            <div class="text-muted">@Songs.Count songs</div>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="/playlists">Back</a>
+            <a class="btn btn-outline-primary" href="@($"/playlists/edit?id={playlist.Id}")">Edit</a>
+        </div>
+    </div>
+
+    @if (Songs.Count == 0)
+    {
+        <div class="p-4 border rounded-3 bg-light">
+            <b>No songs in this playlist yet.</b>
         </div>
     }
-</div>
+    else
+    {
+        <div class="list-group shadow-sm">
+            @foreach (var s in Songs)
+            {
+                <div class="list-group-item d-flex align-items-center justify-content-between">
+                    <div class="me-3">
+                        <div class="fw-semibold">@s.Title</div>
+                        <div class="text-muted small">
+                            @FormatDuration(s.DurationSec)
+                            <span class="mx-1">•</span>
+                            @(s.ReleaseDate?.Year.ToString() ?? "—")
+                            <span class="mx-1">•</span>
+                            @(string.IsNullOrWhiteSpace(s.MoodTag) ? "no vibe" : s.MoodTag)
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
 
 @code {
     private Playlist? playlist;
+    private List<Song> Songs = new();
 
-    [SupplyParameterFromQuery]
-    private int Id { get; set; }
+    [SupplyParameterFromQuery] private int Id { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        using var context = DbFactory.CreateDbContext();
-        playlist = await context.Playlist.FirstOrDefaultAsync(m => m.Id == Id);
+        using var db = DbFactory.CreateDbContext();
 
-        if (playlist is null)
+        playlist = await db.Playlist.FirstOrDefaultAsync(p => p.Id == Id);
+        if (playlist == null)
         {
-            NavigationManager.NavigateTo("notfound");
+            Nav.NavigateTo("/playlists");
+            return;
         }
+
+        Songs = await db.PlaylistSong
+            .Where(ps => ps.PlaylistId == Id)
+            .Join(db.Song, ps => ps.SongId, s => s.Id, (ps, s) => s)
+            .OrderBy(s => s.Title)
+            .ToListAsync();
+    }
+
+    string FormatDuration(int sec)
+    {
+        if (sec <= 0) return "0:00";
+        var m = sec / 60;
+        var s = sec % 60;
+        return $"{m}:{s:D2}";
     }
 }
+

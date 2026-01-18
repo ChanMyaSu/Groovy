@@ -1,134 +1,101 @@
 ﻿@page "/playlists/edit"
+@rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
 @using Groovy.Domain
 @inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
-@inject NavigationManager NavigationManager
-@inject AuthenticationStateProvider authenticationStateProvider
+@inject AuthenticationStateProvider Auth
+@inject NavigationManager Nav
 
-<PageTitle>Edit</PageTitle>
+<PageTitle>Edit Playlist</PageTitle>
 
-<h1>Edit</h1>
-
-<h2>Playlist</h2>
-<hr />
-@if (Playlist is null)
+@if (playlist is null)
 {
     <p><em>Loading...</em></p>
 }
 else
 {
-    <div class="row">
-        <div class="col-md-4">
-            <EditForm method="post" Model="Playlist" OnValidSubmit="UpdatePlaylist" FormName="edit" Enhance>
-                <DataAnnotationsValidator />
-                <ValidationSummary role="alert"/>
-                <input type="hidden" name="Playlist.Id" value="@Playlist.Id" />
-                <div class="mb-3">
-                <span class="text-danger">*</span>
-                    <label for="name" class="form-label">Name:</label>
-                    <InputText id="name" @bind-Value="Playlist.Name" class="form-control" aria-required="true"/>
-                    <ValidationMessage For="() => Playlist.Name" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                <span class="text-danger">*</span>
-                    <label for="appuserid" class="form-label">AppUserId:</label>
-                    <InputText id="appuserid" @bind-Value="Playlist.AppUserId" class="form-control" aria-required="true"/>
-                    <ValidationMessage For="() => Playlist.AppUserId" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="datecreated" class="form-label">DateCreated:</label>
-                    <InputDate id="datecreated" @bind-Value="Playlist.DateCreated" class="form-control" />
-                    <ValidationMessage For="() => Playlist.DateCreated" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="dateupdated" class="form-label">DateUpdated:</label>
-                    <InputDate id="dateupdated" @bind-Value="Playlist.DateUpdated" class="form-control" />
-                    <ValidationMessage For="() => Playlist.DateUpdated" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="createdby" class="form-label">CreatedBy:</label>
-                    <InputText id="createdby" @bind-Value="Playlist.CreatedBy" class="form-control" />
-                    <ValidationMessage For="() => Playlist.CreatedBy" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="updatedby" class="form-label">UpdatedBy:</label>
-                    <InputText id="updatedby" @bind-Value="Playlist.UpdatedBy" class="form-control" />
-                    <ValidationMessage For="() => Playlist.UpdatedBy" class="text-danger" />
-                </div>
-                <button type="submit" class="btn btn-primary">Save</button>
-            </EditForm>
+    <h2 class="mb-3">Edit Playlist</h2>
+
+    @if (!string.IsNullOrWhiteSpace(Status))
+    {
+        <div class="alert alert-info py-2">@Status</div>
+    }
+
+    <div class="card p-3 shadow-sm" style="max-width:520px;">
+        <div class="mb-3">
+            <label class="form-label">Name</label>
+            <input class="form-control" @bind="playlist.Name" />
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary" @onclick="Save">Save</button>
+            <a class="btn btn-outline-secondary" href="/playlists">Cancel</a>
         </div>
     </div>
 }
 
-<div>
-    <a href="/playlists">Back to List</a>
-</div>
-
 @code {
-    private string userId = "System";
+    private Playlist? playlist;
+    private string Status = "";
+    private string? UserId;
 
-    [SupplyParameterFromQuery]
-    private int Id { get; set; }
-
-    [SupplyParameterFromForm]
-    private Playlist? Playlist { get; set; }
+    [SupplyParameterFromQuery] private int Id { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        var authState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        var authState = await Auth.GetAuthenticationStateAsync();
         var user = authState.User;
-        // Get the userId claim
-        var userIdClaim = user.FindFirst("userId");
-        if (userIdClaim != null)
-        {
-            userId = userIdClaim.Value;
-        }
-     
-        using var context = DbFactory.CreateDbContext();
-        Playlist ??= await context.Playlist.FirstOrDefaultAsync(m => m.Id == Id);
 
-        if (Playlist is null)
+        if (user?.Identity?.IsAuthenticated != true)
         {
-            NavigationManager.NavigateTo("notfound");
+            Nav.NavigateTo("/Account/Login");
+            return;
+        }
+
+        UserId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        using var db = DbFactory.CreateDbContext();
+        playlist = await db.Playlist.FirstOrDefaultAsync(p => p.Id == Id);
+
+        if (playlist == null)
+        {
+            Nav.NavigateTo("/playlists");
+            return;
+        }
+
+        if (playlist.AppUserId != UserId)
+        {
+            Nav.NavigateTo("/playlists");
+            return;
         }
     }
 
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
-    private async Task UpdatePlaylist()
+    private async Task Save()
     {
-        using var context = DbFactory.CreateDbContext();
+        if (playlist == null) return;
 
-        //Set the userId to the UpdatedBy fields.
-        Playlist.UpdatedBy = userId;
-        //Set the DateUpdated fields to the current date and time.
-        Playlist.DateUpdated = DateTime.Now;
-
-        context.Attach(Playlist!).State = EntityState.Modified;
-
-        try
+        var name = (playlist.Name ?? "").Trim();
+        if (name.Length == 0)
         {
-            await context.SaveChangesAsync();
+            Status = "Name cannot be empty.";
+            return;
         }
-        catch (DbUpdateConcurrencyException)
+        if (name.Length > 120) name = name[..120];
+
+        using var db = DbFactory.CreateDbContext();
+        var dbPlaylist = await db.Playlist.FirstOrDefaultAsync(p => p.Id == playlist.Id);
+        if (dbPlaylist == null)
         {
-            if (!PlaylistExists(Playlist!.Id))
-            {
-                NavigationManager.NavigateTo("notfound");
-            }
-            else
-            {
-                throw;
-            }
+            Status = "Playlist not found.";
+            return;
         }
 
-        NavigationManager.NavigateTo("/playlists");
-    }
+        dbPlaylist.Name = name;
+        dbPlaylist.DateUpdated = DateTime.UtcNow;
+        dbPlaylist.UpdatedBy = UserId ?? "System";
 
-    private bool PlaylistExists(int id)
-    {
-        using var context = DbFactory.CreateDbContext();
-        return context.Playlist.Any(e => e.Id == id);
+        await db.SaveChangesAsync();
+        Nav.NavigateTo($"/playlists/details?id={dbPlaylist.Id}");
     }
 }
