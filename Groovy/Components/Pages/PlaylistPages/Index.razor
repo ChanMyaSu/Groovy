@@ -1,40 +1,194 @@
 ﻿@page "/playlists"
 @using Microsoft.EntityFrameworkCore
-@using Microsoft.AspNetCore.Components.QuickGrid
 @using Groovy.Domain
 @using Groovy.Data
 @implements IAsyncDisposable
 @inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+@inject NavigationManager Nav
 
-<PageTitle>Index</PageTitle>
+<PageTitle>Playlists</PageTitle>
 
-<h1>Index</h1>
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h2 class="mb-0">My Playlists</h2>
+        <div class="text-muted">Tap a playlist to view songs</div>
+    </div>
+    <a class="btn btn-outline-primary" href="playlists/create">+ Create</a>
+</div>
 
-<p>
-    <a href="playlists/create">Create New</a>
-</p>
+@if (!string.IsNullOrWhiteSpace(Status))
+{
+    <div class="alert alert-info py-2">@Status</div>
+}
 
-<QuickGrid Class="table" Items="context.Playlist">
-    <PropertyColumn Property="playlist => playlist.Name" />
-    <PropertyColumn Property="playlist => playlist.AppUserId" />
-    <PropertyColumn Property="playlist => playlist.DateCreated" />
-    <PropertyColumn Property="playlist => playlist.DateUpdated" />
-    <PropertyColumn Property="playlist => playlist.CreatedBy" />
-    <PropertyColumn Property="playlist => playlist.UpdatedBy" />
+@if (Playlists.Count == 0)
+{
+    <div class="p-4 border rounded-3 bg-light">
+        <b>No playlists yet.</b> Create one from the generator or click “Create”.
+    </div>
+}
+else
+{
+    <div class="playlist-grid">
+        @foreach (var p in Playlists)
+        {
+            <div class="playlist-card" @onclick="() => Open(p.Id)">
+                <div class="card-top">
+                    @if (EditingId == p.Id)
+                    {
+                        <input class="form-control form-control-sm"
+                               value="@EditName"
+                               @oninput="e => EditName = e.Value?.ToString() ??" ""
+                               @onclick:stopPropagation="true" />
 
-    <TemplateColumn Context="playlist">
-        <a href="@($"playlists/edit?id={playlist.Id}")">Edit</a> |
-        <a href="@($"playlists/details?id={playlist.Id}")">Details</a> |
-        <a href="@($"playlists/delete?id={playlist.Id}")">Delete</a>
-    </TemplateColumn>
-</QuickGrid>
+                        <div class="mt-2 d-flex gap-2">
+                            <button class="btn btn-sm btn-primary" @onclick:stopPropagation="true" @onclick="() => SaveName(p.Id)">Save</button>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick:stopPropagation="true" @onclick="CancelEdit">Cancel</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="title-row">
+                            <div class="playlist-title">@p.Name</div>
+                            <button class="btn btn-sm btn-link text-decoration-none"
+                                    title="Rename"
+                                    @onclick:stopPropagation="true"
+                                    @onclick="() => StartEdit(p.Id, p.Name ??" ")">
+                                Rename
+                            </button>
+                        </div>
+
+                        <div class="meta text-muted">
+                            <span>@(SongCounts.TryGetValue(p.Id, out var c) ? c : 0) songs</span>
+                            <span>•</span>
+                            <span>@p.DateCreated.ToLocalTime().ToString("dd MMM yyyy")</span>
+                        </div>
+
+                        <div class="actions mt-3 d-flex gap-2">
+                            <a class="btn btn-sm btn-outline-primary"
+                               href="@($"/playlists/details?id={p.Id}")"
+                               @onclick:stopPropagation="true">Open</a>
+                            <a class="btn btn-sm btn-outline-secondary"
+                               href="@($"/playlists/edit?id={p.Id}")"
+                               @onclick:stopPropagation="true">Edit</a>
+                            <a class="btn btn-sm btn-outline-danger"
+                               href="@($"/playlists/delete?id={p.Id}")"
+                               @onclick:stopPropagation="true">Delete</a>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<style>
+    .playlist-grid{
+        display:grid;
+        grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+        gap:16px;
+    }
+    .playlist-card{
+        border-radius:16px;
+        border:1px solid rgba(0,0,0,.08);
+        background: linear-gradient(135deg, rgba(114,91,255,.10), rgba(0,194,255,.08));
+        box-shadow: 0 10px 24px rgba(0,0,0,.08);
+        cursor:pointer;
+        transition: transform .12s ease, box-shadow .12s ease;
+        min-height: 180px;
+    }
+    .playlist-card:hover{
+        transform: translateY(-2px);
+        box-shadow: 0 14px 30px rgba(0,0,0,.10);
+    }
+    .card-top{ padding:16px; }
+    .title-row{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:12px;
+    }
+    .playlist-title{
+        font-weight:800;
+        font-size:1.05rem;
+        line-height:1.25rem;
+        overflow:hidden;
+        display:-webkit-box;
+        -webkit-line-clamp:2;
+        -webkit-box-orient:vertical;
+    }
+    .meta{
+        margin-top:6px;
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        font-size:.9rem;
+    }
+</style>
 
 @code {
     private GroovyContext context = default!;
+    List<Playlist> Playlists = new();
+    Dictionary<int, int> SongCounts = new();
 
-    protected override void OnInitialized()
+    string Status = "";
+
+    int? EditingId = null;
+    string EditName = "";
+
+    protected override async Task OnInitializedAsync()
     {
         context = DbFactory.CreateDbContext();
+
+        Playlists = await context.Playlist
+            .OrderByDescending(p => p.DateCreated)
+            .ToListAsync();
+
+        SongCounts = await context.PlaylistSong
+            .GroupBy(x => x.PlaylistId)
+            .Select(g => new { PlaylistId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.PlaylistId, x => x.Count);
+    }
+
+    void Open(int id) => Nav.NavigateTo($"/playlists/details?id={id}");
+
+    void StartEdit(int id, string currentName)
+    {
+        EditingId = id;
+        EditName = currentName;
+        Status = "";
+    }
+
+    void CancelEdit()
+    {
+        EditingId = null;
+        EditName = "";
+    }
+
+    async Task SaveName(int id)
+    {
+        var name = (EditName ?? "").Trim();
+        if (name.Length == 0)
+        {
+            Status = "Name cannot be empty.";
+            return;
+        }
+        if (name.Length > 120) name = name[..120];
+
+        var p = await context.Playlist.FirstOrDefaultAsync(x => x.Id == id);
+        if (p == null) return;
+
+        p.Name = name;
+        p.DateUpdated = DateTime.UtcNow;
+
+        await context.SaveChangesAsync();
+
+        var idx = Playlists.FindIndex(x => x.Id == id);
+        if (idx >= 0) Playlists[idx].Name = name;
+
+        EditingId = null;
+        Status = "Renamed!";
+        await InvokeAsync(StateHasChanged);
     }
 
     public async ValueTask DisposeAsync() => await context.DisposeAsync();
