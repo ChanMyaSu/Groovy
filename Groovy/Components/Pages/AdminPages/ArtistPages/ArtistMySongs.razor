@@ -1,0 +1,378 @@
+﻿@page "/artist/my-songs"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Groovy.Domain
+@using Groovy.Data
+@using System.Security.Claims
+@inject IDbContextFactory<GroovyContext> DbFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Artist,Administrator")]
+
+<PageTitle>My Songs - Groovy</PageTitle>
+
+<div class="container mt-5">
+    <div class="header-section">
+        <div>
+            <h1>🎵 My Songs</h1>
+            <p class="text-muted">Manage your uploaded music</p>
+        </div>
+        <div>
+            <a href="/artist/upload-song" class="btn btn-primary btn-lg">
+                <span>➕ Upload New Song</span>
+            </a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(message))
+    {
+        <div class="alert alert-info alert-dismissible fade show">
+            @message
+            <button type="button" class="btn-close" @onclick="() => message = string.Empty"></button>
+        </div>
+    }
+
+    <div class="stats-cards">
+        <div class="stat-card">
+            <div class="stat-icon">🎵</div>
+            <div class="stat-info">
+                <div class="stat-number">@mySongs.Count</div>
+                <div class="stat-label">Total Songs</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">▶️</div>
+            <div class="stat-info">
+                <div class="stat-number">@songsWithAudio</div>
+                <div class="stat-label">With Audio</div>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-info">
+                <div class="stat-number">@totalListens</div>
+                <div class="stat-label">Total Listens</div>
+            </div>
+        </div>
+    </div>
+
+    @if (mySongs.Any())
+    {
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4>Your Uploaded Songs</h4>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Title</th>
+                                <th>Duration</th>
+                                <th>Audio File</th>
+                                <th>Listens</th>
+                                <th>Uploaded</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var song in mySongs)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@song.Title</strong>
+                                        @if (!string.IsNullOrEmpty(song.MoodTag))
+                                        {
+                                            <br />
+                                
+                                            <span class="badge bg-info">@song.MoodTag</span>
+                                        }
+                                    </td>
+                                    <td>@FormatDuration(song.DurationSec)</td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(song.AudioFilePath))
+                                        {
+                                            <span class="badge bg-success">✓ Has Audio</span>
+                                            <br />
+
+                                            <small class="text-muted">@song.AudioFilePath</small>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger">✗ No Audio</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <strong>@GetListenCount(song.Id)</strong> plays
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            @song.DateCreated.ToString("MMM dd, yyyy")
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <a href="/songs/details?id=@song.Id" class="btn btn-sm btn-outline-primary">
+                                                View
+                                            </a>
+                                            <a href="/songs/edit?id=@song.Id" class="btn btn-sm btn-outline-secondary">
+                                                Edit
+                                            </a>
+                                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSong(song.Id)">
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state">
+            <div class="empty-icon">🎵</div>
+            <h3>No songs uploaded yet</h3>
+            <p class="text-muted">Upload your first song and share it with the world!</p>
+            <a href="/artist/upload-song" class="btn btn-primary btn-lg mt-3">
+                <span>➕ Upload Your First Song</span>
+            </a>
+        </div>
+    }
+</div>
+
+@code {
+    private List<Song> mySongs = new();
+    private Dictionary<int, int> listenCounts = new();
+    private string? currentUserId;
+    private string message = "";
+
+    private int songsWithAudio => mySongs.Count(s => !string.IsNullOrEmpty(s.AudioFilePath));
+    private int totalListens => listenCounts.Values.Sum();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get current user
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        await LoadMySongs();
+        await LoadListenCounts();
+    }
+
+    private async Task LoadMySongs()
+    {
+        using var context = DbFactory.CreateDbContext();
+
+        // Load songs created by current user
+        mySongs = await context.Song
+            .Where(s => s.CreatedBy == currentUserId)
+            .OrderByDescending(s => s.DateCreated)
+            .ToListAsync();
+    }
+
+    private async Task LoadListenCounts()
+    {
+        using var context = DbFactory.CreateDbContext();
+
+        // Get listen counts for each song
+        listenCounts = await context.ListeningHistory
+            .Where(h => mySongs.Select(s => s.Id).Contains(h.SongId))
+            .GroupBy(h => h.SongId)
+            .Select(g => new { SongId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.SongId, x => x.Count);
+    }
+
+    private int GetListenCount(int songId)
+    {
+        return listenCounts.TryGetValue(songId, out var count) ? count : 0;
+    }
+
+    private async Task DeleteSong(int songId)
+    {
+        if (!await ConfirmDelete())
+            return;
+
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+
+            var song = await context.Song.FindAsync(songId);
+            if (song != null && song.CreatedBy == currentUserId)
+            {
+                // Delete audio file if exists
+                if (!string.IsNullOrEmpty(song.AudioFilePath))
+                {
+                    DeleteAudioFile(song.AudioFilePath);
+                }
+
+                // Delete song from database
+                context.Song.Remove(song);
+                await context.SaveChangesAsync();
+
+                message = $"Song '{song.Title}' deleted successfully.";
+                await LoadMySongs();
+                await LoadListenCounts();
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Error deleting song: {ex.Message}";
+        }
+    }
+
+    private void DeleteAudioFile(string filePath)
+    {
+        try
+        {
+            var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", filePath.TrimStart('/'));
+            if (File.Exists(fullPath))
+            {
+                File.Delete(fullPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting file: {ex.Message}");
+        }
+    }
+
+    private async Task<bool> ConfirmDelete()
+    {
+        // In a real app, use a modal confirmation dialog
+        // For now, we'll just return true
+        return await Task.FromResult(true);
+    }
+
+    private string FormatDuration(int seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return $"{(int)ts.TotalMinutes}:{ts.Seconds:D2}";
+    }
+}
+
+<style>
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 3px solid #667eea;
+    }
+
+        .header-section h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #2d3748;
+            margin-bottom: 0;
+        }
+
+    .stats-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: all 0.3s ease;
+    }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+
+    .stat-icon {
+        font-size: 3rem;
+        width: 70px;
+        height: 70px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 12px;
+    }
+
+    .stat-info {
+        flex: 1;
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #2d3748;
+    }
+
+    .stat-label {
+        color: #718096;
+        font-weight: 600;
+    }
+
+    .card {
+        border: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-radius: 12px;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0 !important;
+        padding: 1rem 1.5rem;
+    }
+
+        .card-header h4 {
+            margin: 0;
+            font-weight: 700;
+        }
+
+    .table th {
+        font-weight: 700;
+        color: #2d3748;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .empty-icon {
+        font-size: 5rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+
+    .empty-state h3 {
+        font-weight: 700;
+        color: #2d3748;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        font-weight: 600;
+    }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+</style>
