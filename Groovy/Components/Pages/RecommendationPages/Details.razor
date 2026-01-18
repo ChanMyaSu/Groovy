@@ -1,60 +1,138 @@
 ﻿@page "/recommendations/details"
-@using Microsoft.EntityFrameworkCore
-@using Groovy.Domain
-@inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+@attribute [Authorize(Roles = "Administrator, User, Artist")]
+@inject IDbContextFactory<GroovyContext> DbFactory
+@inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 
 <PageTitle>Details</PageTitle>
 
 <h1>Details</h1>
 
-<div>
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+else if (recommendation is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
     <h2>Recommendation</h2>
-    <hr />
-    @if (recommendation is null)
+    <dl class="row">
+        <dt class="col-sm-2">GeneratedAt</dt>
+        <dd class="col-sm-10">@recommendation.GeneratedAt</dd>
+
+        <dt class="col-sm-2">AlgorithmUsed</dt>
+        <dd class="col-sm-10">@recommendation.AlgorithmUsed</dd>
+
+        <dt class="col-sm-2">SeedInput</dt>
+        <dd class="col-sm-10">@recommendation.SeedInput</dd>
+    </dl>
+
+    <h3 class="mt-4">Recommended Songs</h3>
+
+    @if (songs.Count == 0)
     {
-        <p><em>Loading...</em></p>
+        <p class="text-muted">No songs were saved for this recommendation.</p>
     }
-    else {
-        <dl class="row">
-            <dt class="col-sm-2">AppUserId</dt>
-            <dd class="col-sm-10">@recommendation.AppUserId</dd>
-            <dt class="col-sm-2">GeneratedAt</dt>
-            <dd class="col-sm-10">@recommendation.GeneratedAt</dd>
-            <dt class="col-sm-2">AlgorithmUsed</dt>
-            <dd class="col-sm-10">@recommendation.AlgorithmUsed</dd>
-            <dt class="col-sm-2">SeedInput</dt>
-            <dd class="col-sm-10">@recommendation.SeedInput</dd>
-            <dt class="col-sm-2">DateCreated</dt>
-            <dd class="col-sm-10">@recommendation.DateCreated</dd>
-            <dt class="col-sm-2">DateUpdated</dt>
-            <dd class="col-sm-10">@recommendation.DateUpdated</dd>
-            <dt class="col-sm-2">CreatedBy</dt>
-            <dd class="col-sm-10">@recommendation.CreatedBy</dd>
-            <dt class="col-sm-2">UpdatedBy</dt>
-            <dd class="col-sm-10">@recommendation.UpdatedBy</dd>
-        </dl>
-        <div>
-            <a href="@($"/recommendations/edit?id={recommendation.Id}")">Edit</a> |
-            <a href="@($"/recommendations")">Back to List</a>
-        </div>
+    else
+    {
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Song</th>
+                    <th>Artists</th>
+                    <th>Genres</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in songs)
+                {
+                    <tr>
+                        <td>@row.Rank</td>
+                        <td>
+                            <a href="/songs/details?id=@row.SongId">@row.Title</a>
+                        </td>
+                        <td>@row.Artists</td>
+                        <td>@row.Genres</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     }
-</div>
+
+    <div class="mt-3">
+        <a href="@($"/recommendations/edit?id={recommendation.Id}")">Edit</a> |
+        <a href="/recommendations">Back to List</a>
+    </div>
+}
 
 @code {
     private Recommendation? recommendation;
+    private string error = "";
+    private bool isAdmin;
+    private string? userId;
 
-    [SupplyParameterFromQuery]
-    private int Id { get; set; }
+    private List<RowVm> songs = new();
+
+    [SupplyParameterFromQuery] private int Id { get; set; }
+
+    private class RowVm
+    {
+        public int Rank { get; set; }
+        public int SongId { get; set; }
+        public string Title { get; set; } = "";
+        public string Artists { get; set; } = "";
+        public string Genres { get; set; } = "";
+    }
 
     protected override async Task OnInitializedAsync()
     {
-        using var context = DbFactory.CreateDbContext();
-        recommendation = await context.Recommendation.FirstOrDefaultAsync(m => m.Id == Id);
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = auth.User;
+
+        userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        isAdmin = user.IsInRole("Administrator");
+
+        using var db = DbFactory.CreateDbContext();
+
+        recommendation = await db.Recommendation
+            .Where(r => r.Id == Id)
+            .Include(r => r.RecommendationSongs)
+                .ThenInclude(rs => rs.Song)
+                    .ThenInclude(s => s!.SongArtists)
+                        .ThenInclude(sa => sa.Artist)
+            .Include(r => r.RecommendationSongs)
+                .ThenInclude(rs => rs.Song)
+                    .ThenInclude(s => s!.SongGenres)
+                        .ThenInclude(sg => sg.Genre)
+            .FirstOrDefaultAsync();
 
         if (recommendation is null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
         }
+
+        if (!isAdmin && recommendation.AppUserId != userId)
+        {
+            error = "You are not allowed to view this recommendation.";
+            recommendation = null;
+            return;
+        }
+
+        songs = recommendation.RecommendationSongs
+            .OrderBy(x => x.RankNum)
+            .Select(x => new RowVm
+            {
+                Rank = x.RankNum,
+                SongId = x.SongId,
+                Title = x.Song?.Title ?? "(Unknown)",
+                Artists = string.Join(", ", x.Song?.SongArtists.Select(a => a.Artist!.Name) ?? new List<string>()),
+                Genres = string.Join(", ", x.Song?.SongGenres.Select(g => g.Genre!.Name) ?? new List<string>())
+            })
+            .ToList();
     }
 }

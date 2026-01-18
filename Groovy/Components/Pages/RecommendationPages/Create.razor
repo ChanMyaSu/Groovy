@@ -1,82 +1,157 @@
 ﻿@page "/recommendations/create"
-@using Microsoft.EntityFrameworkCore
-@using Groovy.Domain
-@inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+@attribute [Authorize(Roles = "Administrator, User, Artist")]
+@inject IDbContextFactory<GroovyContext> DbFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IRecommendationService RecommendationService
 @inject NavigationManager NavigationManager
+@rendermode InteractiveServer
 
-<PageTitle>Create</PageTitle>
+<PageTitle>Find My Groove - Generate</PageTitle>
 
-<h1>Create</h1>
+<h1>Find My Groove</h1>
+<p class="text-muted">Pick up to 3 favourite artists, genres, and songs. Then generate fresh recommendations you haven't seen before.</p>
 
-<h2>Recommendation</h2>
-<hr />
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="alert @messageClass">@message</div>
+}
+
 <div class="row">
-    <div class="col-md-4">
-        <EditForm method="post" Model="Recommendation" OnValidSubmit="AddRecommendation" FormName="create" Enhance>
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert"/>
-            <div class="mb-3">
-                <span class="text-danger">*</span>
-                <label for="appuserid" class="form-label">AppUserId:</label> 
-                <InputText id="appuserid" @bind-Value="Recommendation.AppUserId" class="form-control" aria-required="true"/> 
-                <ValidationMessage For="() => Recommendation.AppUserId" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <span class="text-danger">*</span>
-                <label for="generatedat" class="form-label">GeneratedAt:</label> 
-                <InputDate id="generatedat" @bind-Value="Recommendation.GeneratedAt" class="form-control" aria-required="true"/> 
-                <ValidationMessage For="() => Recommendation.GeneratedAt" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <span class="text-danger">*</span>
-                <label for="algorithmused" class="form-label">AlgorithmUsed:</label> 
-                <InputText id="algorithmused" @bind-Value="Recommendation.AlgorithmUsed" class="form-control" aria-required="true"/> 
-                <ValidationMessage For="() => Recommendation.AlgorithmUsed" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="seedinput" class="form-label">SeedInput:</label> 
-                <InputText id="seedinput" @bind-Value="Recommendation.SeedInput" class="form-control" /> 
-                <ValidationMessage For="() => Recommendation.SeedInput" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="datecreated" class="form-label">DateCreated:</label> 
-                <InputDate id="datecreated" @bind-Value="Recommendation.DateCreated" class="form-control" /> 
-                <ValidationMessage For="() => Recommendation.DateCreated" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="dateupdated" class="form-label">DateUpdated:</label> 
-                <InputDate id="dateupdated" @bind-Value="Recommendation.DateUpdated" class="form-control" /> 
-                <ValidationMessage For="() => Recommendation.DateUpdated" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="createdby" class="form-label">CreatedBy:</label> 
-                <InputText id="createdby" @bind-Value="Recommendation.CreatedBy" class="form-control" /> 
-                <ValidationMessage For="() => Recommendation.CreatedBy" class="text-danger" /> 
-            </div>        
-            <div class="mb-3">
-                <label for="updatedby" class="form-label">UpdatedBy:</label> 
-                <InputText id="updatedby" @bind-Value="Recommendation.UpdatedBy" class="form-control" /> 
-                <ValidationMessage For="() => Recommendation.UpdatedBy" class="text-danger" /> 
-            </div>        
-            <button type="submit" class="btn btn-primary">Create</button>
-        </EditForm>
+    <div class="col-lg-4">
+        <h5>Favourite Artists (max 3)</h5>
+        <div style="max-height:260px; overflow:auto;" class="border rounded p-2">
+            @foreach (var a in artists)
+            {
+                var checkedNow = selectedArtistIds.Contains(a.Id);
+                var disableNow = !checkedNow && selectedArtistIds.Count >= 3;
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox"
+                           checked="@checkedNow" disabled="@disableNow"
+                           @onchange="(e) => Toggle(selectedArtistIds, a.Id, (bool)e.Value!)" />
+                    <label class="form-check-label">@a.Name</label>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <h5>Favourite Genres (max 3)</h5>
+        <div style="max-height:260px; overflow:auto;" class="border rounded p-2">
+            @foreach (var g in genres)
+            {
+                var checkedNow = selectedGenreIds.Contains(g.Id);
+                var disableNow = !checkedNow && selectedGenreIds.Count >= 3;
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox"
+                           checked="@checkedNow" disabled="@disableNow"
+                           @onchange="(e) => Toggle(selectedGenreIds, g.Id, (bool)e.Value!)" />
+                    <label class="form-check-label">@g.Name</label>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <h5>Favourite Songs (max 3)</h5>
+        <div style="max-height:260px; overflow:auto;" class="border rounded p-2">
+            @foreach (var s in songs)
+            {
+                var checkedNow = selectedSongIds.Contains(s.Id);
+                var disableNow = !checkedNow && selectedSongIds.Count >= 3;
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox"
+                           checked="@checkedNow" disabled="@disableNow"
+                           @onchange="(e) => Toggle(selectedSongIds, s.Id, (bool)e.Value!)" />
+                    <label class="form-check-label">@s.Title</label>
+                </div>
+            }
+        </div>
     </div>
 </div>
 
-<div>
-    <a href="/recommendations">Back to List</a>
+<div class="mt-4 d-flex gap-2">
+    <button class="btn btn-primary" @onclick="Generate" disabled="@isBusy">Generate</button>
+    <a class="btn btn-outline-secondary" href="/recommendations">Back</a>
 </div>
 
 @code {
-    [SupplyParameterFromForm]
-    private Recommendation Recommendation { get; set; } = new();
+    private List<Artist> artists = new();
+    private List<Genre> genres = new();
+    private List<Song> songs = new();
 
-    // To protect from overposting attacks, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
-    private async Task AddRecommendation()
+    private List<int> selectedArtistIds = new();
+    private List<int> selectedGenreIds = new();
+    private List<int> selectedSongIds = new();
+
+    private string message = "";
+    private string messageClass = "alert-info";
+    private bool isBusy;
+
+    private string? userId;
+
+    protected override async Task OnInitializedAsync()
     {
-        using var context = DbFactory.CreateDbContext();
-        context.Recommendation.Add(Recommendation);
-        await context.SaveChangesAsync();
-        NavigationManager.NavigateTo("/recommendations");
+        using var db = DbFactory.CreateDbContext();
+
+        artists = await db.Artist.OrderBy(a => a.Name).ToListAsync();
+        genres = await db.Genre.OrderBy(g => g.Name).ToListAsync();
+        songs = await db.Song.OrderBy(s => s.Title).ToListAsync();
+
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        userId = auth.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    }
+
+    private void Toggle(List<int> list, int id, bool isChecked)
+    {
+        if (isChecked)
+        {
+            if (!list.Contains(id) && list.Count < 3) list.Add(id);
+        }
+        else
+        {
+            list.Remove(id);
+        }
+    }
+
+    private async Task Generate()
+    {
+        message = "";
+        messageClass = "alert-info";
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            message = "You are not logged in.";
+            messageClass = "alert-danger";
+            return;
+        }
+
+        if (selectedArtistIds.Count == 0 && selectedGenreIds.Count == 0 && selectedSongIds.Count == 0)
+        {
+            message = "Pick at least 1 artist, genre, or song.";
+            messageClass = "alert-warning";
+            return;
+        }
+
+        isBusy = true;
+        try
+        {
+            var rec = await RecommendationService.GenerateFindMyGrooveAsync(
+                userId,
+                selectedArtistIds,
+                selectedGenreIds,
+                selectedSongIds,
+                4);
+
+            NavigationManager.NavigateTo($"/recommendations/details?id={rec.Id}");
+        }
+        catch
+        {
+            message = "Something went wrong while generating. Try again.";
+            messageClass = "alert-danger";
+        }
+        finally
+        {
+            isBusy = false;
+        }
     }
 }

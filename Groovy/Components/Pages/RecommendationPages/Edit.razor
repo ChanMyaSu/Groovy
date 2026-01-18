@@ -1,127 +1,105 @@
 ﻿@page "/recommendations/edit"
-@using Microsoft.EntityFrameworkCore
-@using Groovy.Domain
-@inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+@attribute [Authorize(Roles = "Administrator, User, Artist")]
+@inject IDbContextFactory<GroovyContext> DbFactory
+@inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager NavigationManager
 
 <PageTitle>Edit</PageTitle>
 
 <h1>Edit</h1>
 
-<h2>Recommendation</h2>
-<hr />
-@if (Recommendation is null)
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+else if (Recommendation is null)
 {
     <p><em>Loading...</em></p>
 }
 else
 {
+    <h2>Recommendation</h2>
+    <hr />
+
     <div class="row">
-        <div class="col-md-4">
-            <EditForm method="post" Model="Recommendation" OnValidSubmit="UpdateRecommendation" FormName="edit" Enhance>
+        <div class="col-md-6">
+            <EditForm Model="Recommendation" OnValidSubmit="UpdateRecommendation">
                 <DataAnnotationsValidator />
-                <ValidationSummary role="alert"/>
-                <input type="hidden" name="Recommendation.Id" value="@Recommendation.Id" />
+                <ValidationSummary />
+
                 <div class="mb-3">
-                <span class="text-danger">*</span>
-                    <label for="appuserid" class="form-label">AppUserId:</label>
-                    <InputText id="appuserid" @bind-Value="Recommendation.AppUserId" class="form-control" aria-required="true"/>
-                    <ValidationMessage For="() => Recommendation.AppUserId" class="text-danger" />
+                    <label class="form-label">Algorithm Used</label>
+                    <InputText class="form-control" @bind-Value="Recommendation.AlgorithmUsed" />
                 </div>
+
                 <div class="mb-3">
-                <span class="text-danger">*</span>
-                    <label for="generatedat" class="form-label">GeneratedAt:</label>
-                    <InputDate id="generatedat" @bind-Value="Recommendation.GeneratedAt" class="form-control" aria-required="true"/>
-                    <ValidationMessage For="() => Recommendation.GeneratedAt" class="text-danger" />
+                    <label class="form-label">Seed Input (JSON/string)</label>
+                    <InputText class="form-control" @bind-Value="Recommendation.SeedInput" />
                 </div>
-                <div class="mb-3">
-                <span class="text-danger">*</span>
-                    <label for="algorithmused" class="form-label">AlgorithmUsed:</label>
-                    <InputText id="algorithmused" @bind-Value="Recommendation.AlgorithmUsed" class="form-control" aria-required="true"/>
-                    <ValidationMessage For="() => Recommendation.AlgorithmUsed" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="seedinput" class="form-label">SeedInput:</label>
-                    <InputText id="seedinput" @bind-Value="Recommendation.SeedInput" class="form-control" />
-                    <ValidationMessage For="() => Recommendation.SeedInput" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="datecreated" class="form-label">DateCreated:</label>
-                    <InputDate id="datecreated" @bind-Value="Recommendation.DateCreated" class="form-control" />
-                    <ValidationMessage For="() => Recommendation.DateCreated" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="dateupdated" class="form-label">DateUpdated:</label>
-                    <InputDate id="dateupdated" @bind-Value="Recommendation.DateUpdated" class="form-control" />
-                    <ValidationMessage For="() => Recommendation.DateUpdated" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="createdby" class="form-label">CreatedBy:</label>
-                    <InputText id="createdby" @bind-Value="Recommendation.CreatedBy" class="form-control" />
-                    <ValidationMessage For="() => Recommendation.CreatedBy" class="text-danger" />
-                </div>
-                <div class="mb-3">
-                    <label for="updatedby" class="form-label">UpdatedBy:</label>
-                    <InputText id="updatedby" @bind-Value="Recommendation.UpdatedBy" class="form-control" />
-                    <ValidationMessage For="() => Recommendation.UpdatedBy" class="text-danger" />
-                </div>
+
                 <button type="submit" class="btn btn-primary">Save</button>
+                <a class="btn btn-outline-secondary ms-2" href="/recommendations">Back</a>
             </EditForm>
         </div>
     </div>
 }
 
-<div>
-    <a href="/recommendations">Back to List</a>
-</div>
-
 @code {
-    [SupplyParameterFromQuery]
-    private int Id { get; set; }
-
-    [SupplyParameterFromForm]
-    private Recommendation? Recommendation { get; set; }
+    [SupplyParameterFromQuery] private int Id { get; set; }
+    private Recommendation? Recommendation;
+    private string error = "";
+    private bool isAdmin;
+    private string? userId;
 
     protected override async Task OnInitializedAsync()
     {
-        using var context = DbFactory.CreateDbContext();
-        Recommendation ??= await context.Recommendation.FirstOrDefaultAsync(m => m.Id == Id);
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = auth.User;
+
+        userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        isAdmin = user.IsInRole("Administrator");
+
+        using var db = DbFactory.CreateDbContext();
+        Recommendation = await db.Recommendation.FirstOrDefaultAsync(r => r.Id == Id);
 
         if (Recommendation is null)
         {
             NavigationManager.NavigateTo("notfound");
+            return;
+        }
+
+        if (!isAdmin && Recommendation.AppUserId != userId)
+        {
+            error = "You are not allowed to edit this recommendation.";
+            Recommendation = null;
         }
     }
 
-    // To protect from overposting attacks, enable the specific properties you want to bind to.
-    // For more information, see https://learn.microsoft.com/aspnet/core/blazor/forms/#mitigate-overposting-attacks.
     private async Task UpdateRecommendation()
     {
-        using var context = DbFactory.CreateDbContext();
-        context.Attach(Recommendation!).State = EntityState.Modified;
+        if (Recommendation is null) return;
 
-        try
+        using var db = DbFactory.CreateDbContext();
+
+        var existing = await db.Recommendation.FirstOrDefaultAsync(r => r.Id == Recommendation.Id);
+        if (existing is null)
         {
-            await context.SaveChangesAsync();
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            if (!RecommendationExists(Recommendation!.Id))
-            {
-                NavigationManager.NavigateTo("notfound");
-            }
-            else
-            {
-                throw;
-            }
+            NavigationManager.NavigateTo("notfound");
+            return;
         }
 
-        NavigationManager.NavigateTo("/recommendations");
-    }
+        if (!isAdmin && existing.AppUserId != userId)
+        {
+            error = "You are not allowed to edit this recommendation.";
+            return;
+        }
 
-    private bool RecommendationExists(int id)
-    {
-        using var context = DbFactory.CreateDbContext();
-        return context.Recommendation.Any(e => e.Id == id);
+        existing.AlgorithmUsed = Recommendation.AlgorithmUsed;
+        existing.SeedInput = Recommendation.SeedInput;
+        existing.DateUpdated = DateTime.UtcNow;
+        existing.UpdatedBy = userId;
+
+        await db.SaveChangesAsync();
+        NavigationManager.NavigateTo($"/recommendations/details?id={existing.Id}");
     }
 }

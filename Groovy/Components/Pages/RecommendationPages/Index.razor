@@ -1,43 +1,63 @@
 ﻿@page "/recommendations"
-@using Microsoft.EntityFrameworkCore
+@attribute [Authorize(Roles = "Administrator, User, Artist")]
 @using Microsoft.AspNetCore.Components.QuickGrid
-@using Groovy.Domain
-@using Groovy.Data
 @implements IAsyncDisposable
-@inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+@inject IDbContextFactory<GroovyContext> DbFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
 
-<PageTitle>Index</PageTitle>
+<PageTitle>Find My Groove</PageTitle>
 
-<h1>Index</h1>
+<h1>Find My Groove</h1>
+<p class="text-muted">Your past generated recommendations (CRUD) are listed here.</p>
 
 <p>
-    <a href="recommendations/create">Create New</a>
+    <a class="btn btn-primary" href="/recommendations/create">Generate New</a>
 </p>
 
-<QuickGrid Class="table" Items="context.Recommendation">
-    <PropertyColumn Property="recommendation => recommendation.AppUserId" />
-    <PropertyColumn Property="recommendation => recommendation.GeneratedAt" />
-    <PropertyColumn Property="recommendation => recommendation.AlgorithmUsed" />
-    <PropertyColumn Property="recommendation => recommendation.SeedInput" />
-    <PropertyColumn Property="recommendation => recommendation.DateCreated" />
-    <PropertyColumn Property="recommendation => recommendation.DateUpdated" />
-    <PropertyColumn Property="recommendation => recommendation.CreatedBy" />
-    <PropertyColumn Property="recommendation => recommendation.UpdatedBy" />
+@if (!string.IsNullOrWhiteSpace(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
 
-    <TemplateColumn Context="recommendation">
-        <a href="@($"recommendations/edit?id={recommendation.Id}")">Edit</a> |
-        <a href="@($"recommendations/details?id={recommendation.Id}")">Details</a> |
-        <a href="@($"recommendations/delete?id={recommendation.Id}")">Delete</a>
+<QuickGrid Class="table" Items="FilteredRecommendations">
+    <PropertyColumn Property="r => r.GeneratedAt" Title="Generated At" />
+    <PropertyColumn Property="r => r.AlgorithmUsed" Title="Algorithm" />
+    <PropertyColumn Property="r => r.SeedInput" Title="Seed Input" />
+
+    <TemplateColumn Context="r" Title="Actions">
+        <a href="@($"/recommendations/details?id={r.Id}")">Details</a> |
+        <a href="@($"/recommendations/edit?id={r.Id}")">Edit</a> |
+        <a href="@($"/recommendations/delete?id={r.Id}")">Delete</a>
     </TemplateColumn>
 </QuickGrid>
 
 @code {
     private GroovyContext context = default!;
+    private string? userId;
+    private bool isAdmin;
+    private string error = "";
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         context = DbFactory.CreateDbContext();
+
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = auth.User;
+
+        userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        isAdmin = user.IsInRole("Administrator");
+
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            error = "You are not logged in.";
+        }
     }
+
+    private IQueryable<Recommendation> FilteredRecommendations
+        => context.Recommendation
+            .Where(r => isAdmin || r.AppUserId == userId)
+            .OrderByDescending(r => r.GeneratedAt);
 
     public async ValueTask DisposeAsync() => await context.DisposeAsync();
 }

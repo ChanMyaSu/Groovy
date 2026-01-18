@@ -1,2 +1,10 @@
 ﻿@using Microsoft.AspNetCore.Authorization
-@attribute [Authorize(Roles = "Administrator, User")]
+@attribute [Authorize(Roles = "Administrator, User, Artist")]
+
+@using System.Security.Claims
+
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using Groovy.Data
+@using Groovy.Domain
+@using Groovy.Services

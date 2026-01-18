@@ -19,6 +19,7 @@ builder.Services.AddQuickGridEntityFrameworkAdapter();
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // Add services to the container.
+builder.Services.AddScoped<Groovy.Services.IRecommendationService, Groovy.Services.RecommendationService>();
 
 
 builder.Services.AddRazorComponents()
