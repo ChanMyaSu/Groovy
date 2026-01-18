@@ -1,9 +1,9 @@
-﻿
-@using Groovy.Services
-@using Groovy.Domain
+﻿@using Groovy.Domain
+@using Groovy.Data
 @using Microsoft.AspNetCore.Components.Authorization
 @using System.Security.Claims
-@inject IListeningHistoryService ListeningHistoryService
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<GroovyContext> DbFactory
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IJSRuntime JS
 
@@ -50,15 +50,16 @@
                 <div class="progress-fill" style="width: @(progressPercent)%"></div>
             </div>
 
+            <!-- CRITICAL: Audio element with proper attributes -->
             <audio id="@audioElementId"
-                   src="@CurrentSong.AudioFilePath"
-                   @ref="audioElement"
-                   @ontimeupdate="OnTimeUpdate"
-                   @onended="OnSongEnded"
-                   @onplay="OnPlay"
-                   @onpause="OnPause">
+                   preload="auto"
+                   crossorigin="anonymous">
+                <source src="@CurrentSong.AudioFilePath" type="audio/mpeg" />
+                Your browser does not support the audio element.
             </audio>
         </div>
+
+        
     }
     else
     {
@@ -73,10 +74,6 @@
     [Parameter]
     public Song? CurrentSong { get; set; }
 
-    [Parameter]
-    public EventCallback<Song> OnSongChange { get; set; }
-
-    private ElementReference audioElement;
     private string audioElementId = $"audio-player-{Guid.NewGuid()}";
     private bool isPlaying = false;
     private bool isLoading = false;
@@ -84,6 +81,7 @@
     private double progressPercent = 0;
     private int? currentHistoryId = null;
     private string? currentUserId = null;
+    private string lastError = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -93,12 +91,44 @@
                        ?? user.FindFirst("userId")?.Value;
     }
 
-    protected override async Task OnParametersSetAsync()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // Reset player when song changes
-        if (CurrentSong != null)
+        if (firstRender && CurrentSong != null)
         {
-            await Stop();
+            // Setup event listeners
+            await SetupAudioElement();
+        }
+    }
+
+    private async Task SetupAudioElement()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", $@"
+                var audio = document.getElementById('{audioElementId}');
+                if (audio) {{
+                    console.log('Audio element found:', audio);
+                    console.log('Audio src:', audio.src);
+                    audio.addEventListener('timeupdate', function() {{
+                        // Time update handler
+                    }});
+                    audio.addEventListener('ended', function() {{
+                        console.log('Audio ended');
+                    }});
+                    audio.addEventListener('error', function(e) {{
+                        console.error('Audio error:', e);
+                        console.error('Audio error code:', audio.error.code);
+                        console.error('Audio error message:', audio.error.message);
+                    }});
+                }} else {{
+                    console.error('Audio element not found!');
+                }}
+            ");
+        }
+        catch (Exception ex)
+        {
+            lastError = $"Setup error: {ex.Message}";
+            Console.WriteLine($"Setup error: {ex.Message}");
         }
     }
 
@@ -122,19 +152,56 @@
         try
         {
             isLoading = true;
+            lastError = "";
             StateHasChanged();
 
             // Record play in listening history
             if (currentUserId != null && currentHistoryId == null)
             {
-                await ListeningHistoryService.RecordPlayAsync(currentUserId, CurrentSong.Id);
+                await RecordPlayInHistory();
             }
 
-            await JS.InvokeVoidAsync("eval", $"document.getElementById('{audioElementId}').play()");
-            isPlaying = true;
+            // CRITICAL: Play the audio
+            var result = await JS.InvokeAsync<string>("eval", $@"
+                (function() {{
+                    try {{
+                        var audio = document.getElementById('{audioElementId}');
+                        if (!audio) {{
+                            return 'ERROR: Audio element not found';
+                        }}
+                        console.log('Attempting to play:', audio.src);
+                        var playPromise = audio.play();
+                        if (playPromise !== undefined) {{
+                            playPromise.then(function() {{
+                                console.log('Playback started successfully');
+                                return 'SUCCESS';
+                            }}).catch(function(error) {{
+                                console.error('Play failed:', error);
+                                return 'ERROR: ' + error.message;
+                            }});
+                        }}
+                        return 'PLAY_CALLED';
+                    }} catch (e) {{
+                        console.error('Exception:', e);
+                        return 'ERROR: ' + e.message;
+                    }}
+                }})()
+            ");
+
+            Console.WriteLine($"Play result: {result}");
+
+            if (result.StartsWith("ERROR"))
+            {
+                lastError = result;
+            }
+            else
+            {
+                isPlaying = true;
+            }
         }
         catch (Exception ex)
         {
+            lastError = $"Play error: {ex.Message}";
             Console.WriteLine($"Error playing audio: {ex.Message}");
         }
         finally
@@ -154,6 +221,7 @@
         }
         catch (Exception ex)
         {
+            lastError = $"Pause error: {ex.Message}";
             Console.WriteLine($"Error pausing audio: {ex.Message}");
         }
     }
@@ -162,8 +230,11 @@
     {
         try
         {
-            await JS.InvokeVoidAsync("eval", $"document.getElementById('{audioElementId}').pause()");
-            await JS.InvokeVoidAsync("eval", $"document.getElementById('{audioElementId}').currentTime = 0");
+            await JS.InvokeVoidAsync("eval", $@"
+                var audio = document.getElementById('{audioElementId}');
+                audio.pause();
+                audio.currentTime = 0;
+            ");
             isPlaying = false;
             currentTime = 0;
             progressPercent = 0;
@@ -172,6 +243,7 @@
         }
         catch (Exception ex)
         {
+            lastError = $"Stop error: {ex.Message}";
             Console.WriteLine($"Error stopping audio: {ex.Message}");
         }
     }
@@ -193,20 +265,6 @@
         }
     }
 
-    private async Task OnTimeUpdate()
-    {
-        try
-        {
-            var time = await JS.InvokeAsync<double>("eval", $"document.getElementById('{audioElementId}').currentTime");
-            currentTime = time;
-            UpdateProgress();
-        }
-        catch
-        {
-            // Ignore errors during time update
-        }
-    }
-
     private void UpdateProgress()
     {
         if (CurrentSong != null && CurrentSong.DurationSec > 0)
@@ -216,38 +274,32 @@
         }
     }
 
-    private async Task OnSongEnded()
+    private async Task RecordPlayInHistory()
     {
-        isPlaying = false;
-
-        // Update listening history as completed
-        if (currentHistoryId.HasValue)
+        try
         {
-            await ListeningHistoryService.UpdatePlayDurationAsync(currentHistoryId.Value, 100, false);
+            using var context = DbFactory.CreateDbContext();
+
+            var history = new ListeningHistory
+            {
+                AppUserId = currentUserId!,
+                SongId = CurrentSong!.Id,
+                ListenedAt = DateTime.UtcNow,
+                PlayedDurationPercent = 0,
+                Skipped = false,
+                DateCreated = DateTime.UtcNow,
+                CreatedBy = currentUserId
+            };
+
+            context.ListeningHistory.Add(history);
+            await context.SaveChangesAsync();
+
+            currentHistoryId = history.Id;
         }
-
-        StateHasChanged();
-    }
-
-    private void OnPlay()
-    {
-        isPlaying = true;
-        StateHasChanged();
-    }
-
-    private void OnPause()
-    {
-        isPlaying = false;
-
-        // Update listening history with current progress
-        if (currentHistoryId.HasValue && CurrentSong != null)
+        catch (Exception ex)
         {
-            var percent = (int)((currentTime / CurrentSong.DurationSec) * 100);
-            bool skipped = percent < 80; // Consider skipped if less than 80% played
-            _ = ListeningHistoryService.UpdatePlayDurationAsync(currentHistoryId.Value, percent, skipped);
+            Console.WriteLine($"Error recording play: {ex.Message}");
         }
-
-        StateHasChanged();
     }
 
     private string FormatTime(double seconds)
@@ -389,7 +441,8 @@
             opacity: 0.5;
         }
 
-    audio {
-        display: none;
+    .diagnostic {
+        border-radius: 8px;
+        font-family: monospace;
     }
 </style>

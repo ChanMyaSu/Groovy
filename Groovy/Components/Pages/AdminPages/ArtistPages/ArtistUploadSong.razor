@@ -1,0 +1,498 @@
+﻿@page "/artist/upload-song"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.EntityFrameworkCore
+@using Groovy.Domain
+@using Groovy.Data
+@using System.Security.Claims
+@inject IDbContextFactory<GroovyContext> DbFactory
+@inject IWebHostEnvironment Environment
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@attribute [Authorize(Roles = "Artist,Administrator")]
+
+<PageTitle>Upload Song - Groovy</PageTitle>
+
+<div class="container mt-5">
+    <div class="upload-header">
+        <h1>🎵 Upload New Song</h1>
+        <p class="text-muted">Share your music with the world</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show">
+            <strong>Error:</strong> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            <strong>Success:</strong> @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = string.Empty"></button>
+        </div>
+    }
+
+    <EditForm Model="@song" OnValidSubmit="UploadSong" FormName="uploadSong">
+        <DataAnnotationsValidator />
+
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4>Song Details</h4>
+            </div>
+            <div class="card-body">
+                <!-- Title -->
+                <div class="mb-3">
+                    <label for="title" class="form-label">Song Title <span class="text-danger">*</span></label>
+                    <InputText id="title" @bind-Value="song!.Title" class="form-control" placeholder="Enter song title" />
+                    <ValidationMessage For="() => song!.Title" class="text-danger" />
+                </div>
+
+                <!-- Duration -->
+                <div class="mb-3">
+                    <label for="duration" class="form-label">Duration (seconds) <span class="text-danger">*</span></label>
+                    <InputNumber id="duration" @bind-Value="song!.DurationSec" class="form-control" placeholder="e.g., 180" />
+                    <small class="text-muted">Tip: 3 minutes = 180 seconds, 4 minutes = 240 seconds</small>
+                    <ValidationMessage For="() => song!.DurationSec" class="text-danger" />
+                </div>
+
+                <!-- Release Date -->
+                <div class="mb-3">
+                    <label for="releaseDate" class="form-label">Release Date</label>
+                    <InputDate id="releaseDate" @bind-Value="song!.ReleaseDate" class="form-control" />
+                </div>
+
+                <!-- BPM -->
+                <div class="mb-3">
+                    <label for="bpm" class="form-label">BPM (Beats Per Minute)</label>
+                    <InputNumber id="bpm" @bind-Value="song!.Bpm" class="form-control" placeholder="e.g., 120" />
+                    <small class="text-muted">Range: 40-250</small>
+                    <ValidationMessage For="() => song!.Bpm" class="text-danger" />
+                </div>
+
+                <!-- Energy -->
+                <div class="mb-3">
+                    <label for="energy" class="form-label">Energy Level (0-100)</label>
+                    <InputNumber id="energy" @bind-Value="song!.Energy" class="form-control" placeholder="e.g., 75" />
+                    <small class="text-muted">0 = Calm, 100 = High Energy</small>
+                    <ValidationMessage For="() => song!.Energy" class="text-danger" />
+                </div>
+
+                <!-- Mood Tag -->
+                <div class="mb-3">
+                    <label for="moodTag" class="form-label">Mood Tag</label>
+                    <InputText id="moodTag" @bind-Value="song!.MoodTag" class="form-control" placeholder="e.g., Happy, Sad, Energetic" />
+                    <ValidationMessage For="() => song!.MoodTag" class="text-danger" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio File Upload -->
+        <div class="card mt-4">
+            <div class="card-header bg-success text-white">
+                <h4>Audio File <span class="text-danger">*</span></h4>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="audioFile" class="form-label">Upload Audio File (MP3, WAV, OGG, M4A)</label>
+                    <InputFile id="audioFile" OnChange="HandleFileSelected" accept=".mp3,.wav,.ogg,.m4a" class="form-control" />
+
+                    @if (!string.IsNullOrEmpty(fileMessage))
+                    {
+                        <div class="@fileMessageClass mt-2">
+                            @fileMessage
+                        </div>
+                    }
+
+                    @if (selectedFile != null)
+                    {
+                        <div class="alert alert-info mt-3">
+                            <strong>Selected File:</strong><br />
+                            📁 Name: @selectedFile.Name<br />
+                            📊 Size: @FormatFileSize(selectedFile.Size)<br />
+                            🎵 Type: @Path.GetExtension(selectedFile.Name).ToUpper()
+                        </div>
+                    }
+
+                    <small class="text-muted d-block mt-2">
+                        <strong>Requirements:</strong><br />
+                        • Max file size: 50 MB<br />
+                        • Supported formats: MP3, WAV, OGG, M4A<br />
+                        • Recommended: MP3 for best compatibility
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Genres Selection -->
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h4>Genres</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Select one or more genres for this song</p>
+                @if (availableGenres.Any())
+                {
+                    <div class="row">
+                        @foreach (var genre in availableGenres)
+                        {
+                            <div class="col-md-4 col-sm-6 mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input"
+                                           type="checkbox"
+                                           id="genre_@genre.Id"
+                                           checked="@selectedGenres.Contains(genre.Id)"
+                                           @onchange="@(e => ToggleGenre(genre.Id, e))" />
+                                    <label class="form-check-label" for="genre_@genre.Id">
+                                        @genre.Name
+                                    </label>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-warning">No genres available. Please contact an administrator.</p>
+                }
+            </div>
+        </div>
+
+        <!-- Submit Buttons -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg" disabled="@isUploading">
+                        @if (isUploading)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Uploading...</span>
+                        }
+                        else
+                        {
+                            <span>🚀 Upload Song</span>
+                        }
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-lg" @onclick="Cancel" disabled="@isUploading">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+
+    <!-- Progress Indicator -->
+    @if (isUploading)
+    {
+        <div class="alert alert-info mt-4">
+            <div class="d-flex align-items-center">
+                <div class="spinner-border text-primary me-3" role="status">
+                    <span class="visually-hidden">Uploading...</span>
+                </div>
+                <div>
+                    <strong>Uploading your song...</strong><br />
+                    <small>Please don't close this page</small>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private Song song = new();
+    private IBrowserFile? selectedFile;
+    private List<Genre> availableGenres = new();
+    private HashSet<int> selectedGenres = new();
+    private string? currentUserId;
+    private int? currentArtistId;
+
+    private bool isUploading = false;
+    private string errorMessage = "";
+    private string successMessage = "";
+    private string fileMessage = "";
+    private string fileMessageClass = "";
+
+    private const long MaxFileSize = 50 * 1024 * 1024; // 50MB
+    private static readonly string[] AllowedExtensions = { ".mp3", ".wav", ".ogg", ".m4a" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get current user ID
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        currentUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        // Load available genres
+        using var context = DbFactory.CreateDbContext();
+        availableGenres = await context.Genre.OrderBy(g => g.Name).ToListAsync();
+
+        // Try to find artist record for current user
+        // If you have Artist linked to AppUser, load it here
+        // For now, we'll create the song and link artist later
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        fileMessage = "";
+        errorMessage = "";
+
+        if (selectedFile == null)
+        {
+            return;
+        }
+
+        // Validate file size
+        if (selectedFile.Size > MaxFileSize)
+        {
+            fileMessage = $"File is too large ({FormatFileSize(selectedFile.Size)}). Maximum size is 50 MB.";
+            fileMessageClass = "alert alert-danger";
+            selectedFile = null;
+            return;
+        }
+
+        // Validate file extension
+        var extension = Path.GetExtension(selectedFile.Name).ToLowerInvariant();
+        if (!AllowedExtensions.Contains(extension))
+        {
+            fileMessage = $"Invalid file type '{extension}'. Please upload MP3, WAV, OGG, or M4A files only.";
+            fileMessageClass = "alert alert-danger";
+            selectedFile = null;
+            return;
+        }
+
+        fileMessage = $"✓ File ready to upload: {selectedFile.Name} ({FormatFileSize(selectedFile.Size)})";
+        fileMessageClass = "alert alert-success";
+    }
+
+    private void ToggleGenre(int genreId, ChangeEventArgs e)
+    {
+        var isChecked = (bool)(e.Value ?? false);
+
+        if (isChecked)
+        {
+            selectedGenres.Add(genreId);
+        }
+        else
+        {
+            selectedGenres.Remove(genreId);
+        }
+    }
+
+    private async Task UploadSong()
+    {
+        errorMessage = "";
+        successMessage = "";
+
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(song.Title))
+        {
+            errorMessage = "Song title is required.";
+            return;
+        }
+
+        if (selectedFile == null)
+        {
+            errorMessage = "Please select an audio file to upload.";
+            return;
+        }
+
+        if (song.DurationSec < 1)
+        {
+            errorMessage = "Please enter a valid duration.";
+            return;
+        }
+
+        try
+        {
+            isUploading = true;
+            StateHasChanged();
+
+            using var context = DbFactory.CreateDbContext();
+
+            // 1. Upload audio file
+            var audioFilePath = await UploadAudioFile();
+            if (audioFilePath == null)
+            {
+                errorMessage = "Failed to upload audio file. Please try again.";
+                return;
+            }
+
+            // 2. Set song properties
+            song.AudioFilePath = audioFilePath;
+            song.DateCreated = DateTime.UtcNow;
+            song.CreatedBy = currentUserId;
+
+            // 3. Save song to database
+            context.Song.Add(song);
+            await context.SaveChangesAsync();
+
+            // 4. Link genres to song
+            if (selectedGenres.Any())
+            {
+                foreach (var genreId in selectedGenres)
+                {
+                    var songGenre = new SongGenre
+                    {
+                        SongId = song.Id,
+                        GenreId = genreId
+                    };
+                    context.SongGenre.Add(songGenre);
+                }
+                await context.SaveChangesAsync();
+            }
+
+            // 5. Link artist to song (if artist record exists)
+            await LinkArtistToSong(context);
+
+            successMessage = $"✓ Song '{song.Title}' uploaded successfully! Users can now listen to it in the Library.";
+
+            // Reset form
+            await Task.Delay(2000); // Show success message for 2 seconds
+            NavigationManager.NavigateTo("/artist/my-songs");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Upload failed: {ex.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task<string?> UploadAudioFile()
+    {
+        try
+        {
+            if (selectedFile == null)
+                return null;
+
+            // Create audio directory if it doesn't exist
+            var audioPath = Path.Combine(Environment.WebRootPath, "audio");
+            if (!Directory.Exists(audioPath))
+            {
+                Directory.CreateDirectory(audioPath);
+            }
+
+            // Generate safe filename: {songTitle}_{timestamp}{extension}
+            var safeTitle = string.Join("_", song.Title!.Split(Path.GetInvalidFileNameChars()));
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+            var extension = Path.GetExtension(selectedFile.Name);
+            var fileName = $"{safeTitle}_{timestamp}{extension}";
+            var fullPath = Path.Combine(audioPath, fileName);
+
+            // Save file
+            using (var fileStream = new FileStream(fullPath, FileMode.Create))
+            {
+                await selectedFile.OpenReadStream(MaxFileSize).CopyToAsync(fileStream);
+            }
+
+            // Return relative path for database
+            return $"/audio/{fileName}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error uploading file: {ex.Message}");
+            return null;
+        }
+    }
+
+    private async Task LinkArtistToSong(GroovyContext context)
+    {
+        try
+        {
+            // Try to find artist record linked to current user
+            // This assumes you have a way to link AppUser to Artist
+            // Adjust this logic based on your Artist model structure
+
+            // Option 1: If Artist has AppUserId property
+            // var artist = await context.Artist.FirstOrDefaultAsync(a => a.AppUserId == currentUserId);
+
+            // Option 2: If you need to create artist record on-the-fly
+            // For now, we'll just skip this if no artist record exists
+            // You can add artist linking logic here based on your needs
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error linking artist: {ex.Message}");
+        }
+    }
+
+    private void Cancel()
+    {
+        NavigationManager.NavigateTo("/artist/my-songs");
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        int order = 0;
+        double size = bytes;
+
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size = size / 1024;
+        }
+
+        return $"{size:0.##} {sizes[order]}";
+    }
+}
+
+<style>
+    .upload-header {
+        text-align: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 3px solid #667eea;
+    }
+
+        .upload-header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #2d3748;
+        }
+
+    .card {
+        border: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+    }
+
+    .card-header {
+        border-radius: 12px 12px 0 0 !important;
+        padding: 1rem 1.5rem;
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #2d3748;
+    }
+
+    .form-control:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        font-weight: 600;
+    }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+    .form-check-input:checked {
+        background-color: #667eea;
+        border-color: #667eea;
+    }
+</style>
