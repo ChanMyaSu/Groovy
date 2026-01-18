@@ -1,5 +1,6 @@
 ﻿@implements IDisposable
 @inject NavigationManager NavigationManager
+
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">Groovy</a>
@@ -16,7 +17,6 @@
             </NavLink>
         </div>
 
-        
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">
@@ -24,11 +24,13 @@
                         <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
                     </NavLink>
                 </div>
+
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="artists">
                         <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Artist
                     </NavLink>
                 </div>
+
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="artist/my-songs">
                         <span class="bi bi-music-note-list"></span> My Songs
@@ -40,36 +42,43 @@
                         <span class="bi bi-upload"></span> Upload Song
                     </NavLink>
                 </div>
+
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="genres">
                         <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Genre
                     </NavLink>
                 </div>
+
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="songs">
                         <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Song
                     </NavLink>
                 </div>
+
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="listeninghistories">
                         <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Listening History
                     </NavLink>
                 </div>
+
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="playlists">
                         <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Playlist
                     </NavLink>
                 </div>
+
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="library">
                         <span class="bi bi-collection-fill" aria-hidden="true"></span> Library
                     </NavLink>
                 </div>
+
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="recommendations">
                         <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Recommendation
                     </NavLink>
                 </div>
+
                 <div class="nav-item px-3">
                     <form action="Account/Logout" method="post">
                         <AntiforgeryToken />
@@ -79,7 +88,15 @@
                         </button>
                     </form>
                 </div>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="magic-playlist">
+                        <span class="bi bi-magic"></span> Magic Playlist
+                    </NavLink>
+                </div>
+
             </Authorized>
+
             <NotAuthorized>
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="Account/Register">
@@ -93,6 +110,7 @@
                 </div>
             </NotAuthorized>
         </AuthorizeView>
+
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="profilepage">
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Profile
@@ -103,6 +121,7 @@
 
 @code {
     private string? currentUrl;
+
     protected override void OnInitialized()
     {
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
@@ -119,5 +138,4 @@
     {
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
-
 }
