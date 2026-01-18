@@ -16,6 +16,11 @@
 @inject IdentityRedirectManager RedirectManager
 @inject RoleManager<IdentityRole> RoleManager
 
+@using Microsoft.EntityFrameworkCore
+@using Groovy.Domain
+@inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+
+
 <PageTitle>Register</PageTitle>
 
 <h1>Register</h1>
@@ -112,7 +117,28 @@
         }
         await UserManager.AddToRoleAsync(user, Input.Role);
 
-        
+        // If they registered as Artist, auto-create a record in Artist table
+        if (Input.Role == "Artist")
+        {
+            using var db = DbFactory.CreateDbContext();
+
+            var alreadyExists = await db.Artist.AnyAsync(a => a.CreatedBy == user.Id);
+            if (!alreadyExists)
+            {
+                var artist = new Artist
+                {
+                    Name = $"{Input.FirstName} {Input.LastName}".Trim(),
+                    DateCreated = DateTime.UtcNow,
+                    DateUpdated = DateTime.UtcNow,
+                    CreatedBy = user.Id,
+                    UpdatedBy = user.Id
+                };
+
+                db.Artist.Add(artist);
+                await db.SaveChangesAsync();
+            }
+        }
+
         //add the user id as claim when user registers
         await UserManager.AddClaimAsync(user, new System.Security.Claims.Claim("userId",
         user.Id));
