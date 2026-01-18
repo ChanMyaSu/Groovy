@@ -1,36 +1,338 @@
 ﻿@page "/magic-playlists"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using Groovy.Domain
+@inject IDbContextFactory<Groovy.Data.GroovyContext> DbFactory
+@inject AuthenticationStateProvider Auth
+@inject NavigationManager Nav
 
 <PageTitle>Magic Playlist</PageTitle>
 
 <div class="container py-4">
     <h2 class="fw-bold mb-2">✨ Magic Playlist</h2>
-    <p class="text-muted">Auto-generate playlists based on your vibe</p>
+    <p class="text-muted">Auto-generate 5 songs based on era + mood tag</p>
 
     <div class="card p-4 shadow-sm mt-4">
         <div class="row g-3 align-items-end">
             <div class="col-md-4">
                 <label class="form-label">Era</label>
-                <select class="form-select">
-                    <option>1990s</option>
-                    <option>2000s</option>
-                    <option selected>2010s</option>
-                    <option>2020s</option>
+                <select class="form-select" value="@SelectedEra" @onchange="OnEraChanged">
+                    <option value="1990s">1990s</option>
+                    <option value="2000s">2000s</option>
+                    <option value="2010s">2010s</option>
+                    <option value="2020s">2020s</option>
                 </select>
             </div>
 
             <div class="col-md-4">
-                <label class="form-label">Vibe</label>
-                <select class="form-select">
-                    <option selected>Chill</option>
-                    <option>Energetic</option>
-                    <option>Dreamy</option>
+                <label class="form-label">Mood</label>
+                <select class="form-select" value="@SelectedMood" @onchange="OnMoodChanged" disabled="@(Moods.Count == 0)">
+                    @foreach (var m in Moods)
+                    {
+                        <option value="@m">@m</option>
+                    }
                 </select>
             </div>
 
             <div class="col-md-4 d-flex gap-2">
-                <button class="btn btn-primary w-100">Generate</button>
-                <button class="btn btn-outline-secondary w-100">Wildcard</button>
+                <button class="btn btn-primary w-100" @onclick="Generate" disabled="@IsBusy">Generate</button>
+                <button class="btn btn-outline-secondary w-100" @onclick="Wildcard" disabled="@IsBusy">Wildcard</button>
             </div>
         </div>
     </div>
+
+    @if (!string.IsNullOrWhiteSpace(Status))
+    {
+        <div class="alert alert-info py-2 mt-3">@Status</div>
+    }
+
+    @if (GeneratedSongs.Count > 0)
+    {
+        <div class="d-flex align-items-center justify-content-between mt-4">
+            <h5 class="mb-0">Generated Songs (5)</h5>
+
+            <div class="d-flex gap-2">
+                <button class="btn btn-success" @onclick="AddPlaylist" disabled="@IsBusy">Add Playlist</button>
+                <button class="btn btn-outline-primary" @onclick="Reshuffle" disabled="@IsBusy">Reshuffle</button>
+            </div>
+        </div>
+
+        <div class="mt-3 list-group">
+            @for (int i = 0; i < GeneratedSongs.Count; i++)
+            {
+                var s = GeneratedSongs[i];
+                <div class="list-group-item d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="badge text-bg-dark">@((i + 1).ToString())</div>
+                        <div>
+                            <div class="fw-semibold">@s.Title</div>
+                            <div class="text-muted small">@FormatEra(s.ReleaseDate) • @(s.MoodTag ?? "unknown")</div>
+                        </div>
+                    </div>
+                    <div class="text-muted small">@FormatDuration(s.DurationSec)</div>
+                </div>
+            }
+        </div>
+    }
 </div>
+
+@code {
+    string SelectedEra = "2000s";
+    string SelectedMood = "";
+
+    List<string> Moods = new();
+    List<Song> GeneratedSongs = new();
+    string Status = "";
+    bool IsBusy = false;
+
+    List<int> LastPoolSongIds = new();
+    readonly Random Rng = new();
+
+    string? UserId;
+
+    readonly string[] EraOptions = new[] { "1990s", "2000s", "2010s", "2020s" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await Auth.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user?.Identity?.IsAuthenticated == true)
+        {
+            UserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+
+        using var context = DbFactory.CreateDbContext();
+
+        Moods = await context.Song
+            .Where(s => s.MoodTag != null && s.MoodTag.Trim() != "")
+            .Select(s => s.MoodTag!.Trim())
+            .Distinct()
+            .OrderBy(x => x)
+            .ToListAsync();
+
+        if (Moods.Count > 0)
+            SelectedMood = Moods[0];
+    }
+
+    void OnEraChanged(ChangeEventArgs e)
+    {
+        SelectedEra = e.Value?.ToString() ?? "2000s";
+    }
+
+    void OnMoodChanged(ChangeEventArgs e)
+    {
+        SelectedMood = e.Value?.ToString() ?? SelectedMood;
+    }
+
+    async Task Generate()
+    {
+        IsBusy = true;
+        Status = "";
+        GeneratedSongs.Clear();
+        LastPoolSongIds.Clear();
+
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+
+            var q = context.Song.AsQueryable();
+
+            var (start, end) = EraRange(SelectedEra);
+            q = q.Where(s =>
+                s.ReleaseDate == null ||
+                (s.ReleaseDate.Value.Year >= start && s.ReleaseDate.Value.Year <= end)
+            );
+
+            var mood = (SelectedMood ?? "").Trim().ToLower();
+            q = q.Where(s => (s.MoodTag ?? "").Trim().ToLower() == mood);
+
+            var pool = await q.ToListAsync();
+
+            if (pool.Count == 0)
+            {
+                Status = "No songs matched for that era + mood.";
+                return;
+            }
+
+            LastPoolSongIds = pool.Select(x => x.Id).ToList();
+            GeneratedSongs = PickN(pool, 5);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    async Task Wildcard()
+    {
+        IsBusy = true;
+        Status = "";
+        GeneratedSongs.Clear();
+        LastPoolSongIds.Clear();
+
+        try
+        {
+            using var context = DbFactory.CreateDbContext();
+            var all = await context.Song.ToListAsync();
+
+            if (all.Count == 0)
+            {
+                Status = "No songs found in database.";
+                return;
+            }
+
+            SelectedEra = EraOptions[Rng.Next(EraOptions.Length)];
+
+            if (Moods.Count > 0)
+                SelectedMood = Moods[Rng.Next(Moods.Count)];
+
+            var pool = all;
+            LastPoolSongIds = pool.Select(x => x.Id).ToList();
+            GeneratedSongs = PickN(pool, 5);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    async Task Reshuffle()
+    {
+        IsBusy = true;
+        Status = "";
+
+        try
+        {
+            if (LastPoolSongIds.Count == 0)
+            {
+                Status = "Generate first, then reshuffle.";
+                return;
+            }
+
+            using var context = DbFactory.CreateDbContext();
+            var pool = await context.Song.Where(s => LastPoolSongIds.Contains(s.Id)).ToListAsync();
+
+            if (pool.Count == 0)
+            {
+                Status = "No songs available to reshuffle.";
+                return;
+            }
+
+            GeneratedSongs = PickN(pool, 5);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    async Task AddPlaylist()
+    {
+        IsBusy = true;
+        Status = "";
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(UserId))
+            {
+                Status = "Please log in to add a playlist.";
+                return;
+            }
+
+            if (GeneratedSongs.Count == 0)
+            {
+                Status = "Generate songs first.";
+                return;
+            }
+
+            using var context = DbFactory.CreateDbContext();
+
+            var existingCount = await context.Playlist.CountAsync(p => p.AppUserId == UserId);
+            var playlistName = $"Playlist#_{existingCount + 1}";
+
+            var playlist = new Playlist
+            {
+                Name = playlistName,
+                AppUserId = UserId,
+                DateCreated = DateTime.UtcNow,
+                DateUpdated = DateTime.UtcNow,
+                CreatedBy = UserId,
+                UpdatedBy = UserId
+            };
+
+            context.Playlist.Add(playlist);
+            await context.SaveChangesAsync();
+
+            var songIds = GeneratedSongs.Select(s => s.Id).Distinct().ToList();
+
+            foreach (var sid in songIds)
+            {
+                context.PlaylistSong.Add(new PlaylistSong
+                {
+                    PlaylistId = playlist.Id,
+                    SongId = sid
+                });
+            }
+
+            await context.SaveChangesAsync();
+
+            Nav.NavigateTo("/playlists");
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    List<Song> PickN(List<Song> pool, int n)
+    {
+        var shuffled = pool.OrderBy(_ => Rng.Next()).ToList();
+
+        var result = new List<Song>();
+        while (result.Count < n)
+        {
+            foreach (var s in shuffled)
+            {
+                result.Add(s);
+                if (result.Count == n) break;
+            }
+        }
+
+        return result;
+    }
+
+    (int start, int end) EraRange(string era)
+    {
+        return era switch
+        {
+            "1990s" => (1990, 1999),
+            "2000s" => (2000, 2009),
+            "2010s" => (2010, 2019),
+            "2020s" => (2020, 2029),
+            _ => (0, 9999)
+        };
+    }
+
+    string FormatEra(DateTime? dt)
+    {
+        if (dt == null) return "Unknown era";
+        var y = dt.Value.Year;
+
+        if (y >= 1990 && y <= 1999) return "1990s";
+        if (y >= 2000 && y <= 2009) return "2000s";
+        if (y >= 2010 && y <= 2019) return "2010s";
+        if (y >= 2020 && y <= 2029) return "2020s";
+
+        return y.ToString();
+    }
+
+    string FormatDuration(int seconds)
+    {
+        var m = seconds / 60;
+        var s = seconds % 60;
+        return $"{m}:{s:D2}";
+    }
+}
